@@ -1,4 +1,4 @@
-<img src="readme-files/logo.png">
+<img src="readme-files/logo.png" style="weight: 40px; height: 150px;">
 
 # Clippy Videos
 o Clippy Videos é um projeto de uma rede social open-source isso significa que qualquer pessoa pode mexer no projeto,
