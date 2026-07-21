@@ -5,10 +5,10 @@ versões de apps que o clippy videos usa:
 | apps         | Versão  | Suportada          |
 | ------------ | ------- | ------------------ |
 | python       | atual   | :white_check_mark: |
-| python       | antiga  | :x:                |
-| ffmpeg       | 2025    | :white_check_mark: |
-| ffmpeg       | antiga  | :x:                |
-| SQlite       | 2025    | :white_check_mark: |
-| SQlite       | antiga  | :x:                |
+| python       | < 12    | :x:                |
+| ffmpeg       |   8.0   | :white_check_mark: |
+| ffmpeg       | < 7.0   | :x:                |
+| SQlite       |< 3.53.3 | :white_check_mark: |
+| SQlite       |< 3.47.0 | :x:                |
 
-obs: não cópie o projeto nem use ele sem dar os créditos a mim!
+OBS: eu não tenho certeza de quais versões dos apps que funcionam no projeto, isso é só uma estimação! (só sei do python) 
