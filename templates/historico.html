@@ -3,18 +3,85 @@
 <head>
 <title>histórico de vídeos</title>
 <style>
-background-color: {{ user_settings.cor_fundo }} !important;
+    * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+        body {
+            background-color: {{ user_settings.cor_fundo }} !important;
+        }
+
+/* Sidebar Retro */
+        .sidebar {
+            width: 240px;
+            background: linear-gradient(to bottom, #3a3a5c, #1f1f38);
+            color: white;
+            height: 100vh;
+            position: fixed;
+            top: 0; left: 1087;
+            padding: 20px 10px;
+            border-right: 4px solid var(--neon);
+            box-shadow: 6px 0 25px rgba(0,0,0,0.8);
+            overflow-y: auto;
+        }
+        .sidebar h2 {
+            font-size: 1.5rem;
+            margin-bottom: 40px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-shadow: 0 2px 8px rgba(106,106,255,0.6);
+        }
+        .sidebar a {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            color: #e0e0ff;
+            text-decoration: none;
+            padding: 14px 18px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            transition: all 0.3s;
+        }
+        .sidebar a:hover {
+            background: linear-gradient(to right, #6a6aff, #9d9dff);
+            color: white;
+            transform: translateX(8px);
+        }
+        .sidebar img { width: 26px; height: 26px; filter: brightness(1.1); }
+
+        img {
+            border-radius: 10px;
+        }
+        a { 
+            text-decoration: none;
+            display: block; 
+            margin-bottom: 6px; 
+            color: #fff;
+            font-size: 1.05rem;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+        }
 </style>
 </head>
 <body>
 <h1>Histórico de vídeos</h1>
+
+<!-- Sidebar -->
+    <aside class="sidebar">
+        <h2>📺 Clippy Videos</h2>
+        <a href="/"><img src="{{ static_url }}/home.png" alt=""> Início</a>
+        <a href="/buscar"><img src="{{ static_url }}search.png" alt=""> Buscar</a>
+        <a href="/studio"><img src="{{ static_url }}studio.png" alt=""> Studio</a>
+        <a href="/conta"><img src="{{ static_url }}user.png" alt=""> Minha Conta</a>
+    </aside>
 
 {% if videos %}
     <ul>
         {% for v in videos %}
             <li>
                 <a href="/player/{{ v.id }}">
-                    <img src="/static/uploads/{{ v.thumb }}" width="120">
+                    <img src="{{ static_url }}/uploads/{{ v.thumb }}" width="120">
                     {{ v.title }}
                 </a>
             </li>

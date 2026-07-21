@@ -2,85 +2,144 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Gerenciar Colabs | Clippy Studio</title>
+    <title>Colaborações | Clippy Vídeos Creator Studio</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
     <style>
-        body { font-family: 'Roboto', sans-serif; background: #f9f9f9; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h1 { color: #202020; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        h2 { color: #555; margin-top: 30px; font-size: 18px; }
-        
-        .list-group { list-style: none; padding: 0; }
-        .list-item { 
-            display: flex; justify-content: space-between; align-items: center; 
-            background: #fff; border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px;
-        }
-        .info strong { display: block; font-size: 16px; color: #333; }
-        .info small { color: #777; }
-        .badge { 
-            background: #e91e63; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-left: 5px;
+        :root { --neon: #6a6aff; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #2c2c4c 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 40px;
         }
 
-        .actions form { display: inline; }
-        button { cursor: pointer; padding: 8px 12px; border: none; border-radius: 4px; font-weight: bold; }
-        .btn-accept { background: #34a853; color: white; }
-        .btn-reject { background: #ea4335; color: white; }
-        .btn-remove { background: #666; color: white; }
-        .btn-back { display: inline-block; margin-bottom: 20px; text-decoration: none; color: #4285f4; }
+        .container { max-width: 780px; margin: 0 auto; }
+
+        h1 {
+            font-size: 26px;
+            margin-bottom: 30px;
+            text-shadow: 0 0 15px var(--neon);
+        }
+
+        h2.section {
+            font-size: 18px;
+            color: #c0c0ff;
+            margin: 30px 0 14px;
+            border-bottom: 2px solid rgba(106,106,255,0.3);
+            padding-bottom: 8px;
+        }
+
+        .collab-card {
+            background: linear-gradient(145deg, #3a3a5c, #25253d);
+            border: 2px solid var(--neon);
+            border-radius: 14px;
+            padding: 18px 22px;
+            margin-bottom: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+        }
+
+        .collab-info strong { display: block; font-size: 16px; margin-bottom: 4px; }
+        .collab-info small { color: #a0a0ff; display: block; margin-top: 2px; }
+
+        .collab-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+        button {
+            border: none;
+            padding: 10px 18px;
+            border-radius: 24px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .btn-aceitar { background: linear-gradient(#3ddc84, #2bb673); color: #06210f; }
+        .btn-rejeitar, .btn-remover { background: linear-gradient(#ff5e5e, #ff9d4a); color: #fff; }
+        button:hover { transform: scale(1.05); }
+
+        .status-badge {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 3px 10px;
+            border-radius: 20px;
+            background: rgba(61,220,132,0.2);
+            color: #3ddc84;
+            margin-top: 6px;
+        }
+
+        .vazio { color: #6060aa; text-align: center; padding: 40px 0; }
+
+        .back {
+            display: inline-block;
+            margin-top: 30px;
+            color: #c0c0ff;
+            text-decoration: none;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
-
 <div class="container">
-    <a href="/studio/{{ username }}" class="btn-back">← Voltar para o Studio</a>
-    <h1>Gerenciar Colaborações</h1>
+    <h1>🤝 Colaborações — {{ username }}</h1>
 
-    <h2>🔔 Pedidos Pendentes</h2>
+    <h2 class="section">Pedidos pendentes</h2>
     {% if pedidos %}
-        <ul class="list-group">
-            {% for c in pedidos %}
-            <li class="list-item" style="border-left: 5px solid #e91e63;">
-                <div class="info">
-                    <strong>{{ c.name }}</strong> quer colaborar no vídeo:
-                    <br>🎥 <em>{{ c.video_title }}</em>
-                    <br><small>Função: {{ c.role }}</small>
-                </div>
-                <div class="actions">
-                    <form action="/api/collab/gerenciar" method="POST">
-                        <input type="hidden" name="collab_id" value="{{ c.id }}">
-                        <button type="submit" name="action" value="aceitar" class="btn-accept">Aceitar</button>
-                        <button type="submit" name="action" value="rejeitar" class="btn-reject">Recusar</button>
-                    </form>
-                </div>
-            </li>
-            {% endfor %}
-        </ul>
+        {% for p in pedidos %}
+        <div class="collab-card">
+            <div class="collab-info">
+                <strong>{{ p.name }}</strong>
+                <small>Função: {{ p.role }}</small>
+                <small>Vídeo: {{ p.video_title }}</small>
+            </div>
+            <div class="collab-actions">
+                <form method="POST" action="{{ url_for('api_gerenciar_collab') }}">
+                    <input type="hidden" name="collab_id" value="{{ p.id }}">
+                    <input type="hidden" name="action" value="aceitar">
+                    <button type="submit" class="btn-aceitar">✅ Aceitar</button>
+                </form>
+                <form method="POST" action="{{ url_for('api_gerenciar_collab') }}">
+                    <input type="hidden" name="collab_id" value="{{ p.id }}">
+                    <input type="hidden" name="action" value="rejeitar">
+                    <button type="submit" class="btn-rejeitar">✖ Rejeitar</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
     {% else %}
-        <p style="color:#999;">Nenhum pedido pendente.</p>
+        <p class="vazio">Nenhum pedido pendente no momento.</p>
     {% endif %}
 
-    <h2>✅ Colaboradores Ativos</h2>
+    <h2 class="section">Colaboradores ativos</h2>
     {% if ativos %}
-        <ul class="list-group">
-            {% for c in ativos %}
-            <li class="list-item" style="border-left: 5px solid #34a853;">
-                <div class="info">
-                    <strong>{{ c.name }}</strong>
-                    <span class="badge">{{ c.role }}</span>
-                    <br>🎥 Vídeo: <em>{{ c.video_title }}</em>
-                </div>
-                <div class="actions">
-                    <form action="/api/collab/gerenciar" method="POST" onsubmit="return confirm('Remover este colaborador?');">
-                        <input type="hidden" name="collab_id" value="{{ c.id }}">
-                        <button type="submit" name="action" value="remover" class="btn-remove">Remover</button>
-                    </form>
-                </div>
-            </li>
-            {% endfor %}
-        </ul>
+        {% for a in ativos %}
+        <div class="collab-card">
+            <div class="collab-info">
+                <strong>{{ a.name }}</strong>
+                <small>Função: {{ a.role }}</small>
+                <small>Vídeo: {{ a.video_title }}</small>
+                <span class="status-badge">Ativo</span>
+            </div>
+            <div class="collab-actions">
+                <form method="POST" action="{{ url_for('api_gerenciar_collab') }}">
+                    <input type="hidden" name="collab_id" value="{{ a.id }}">
+                    <input type="hidden" name="action" value="remover">
+                    <button type="submit" class="btn-remover">Remover</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
     {% else %}
-        <p style="color:#999;">Você ainda não tem colaboradores ativos.</p>
+        <p class="vazio">Nenhum colaborador ativo ainda.</p>
     {% endif %}
-</div>
 
+    <a href="{{ url_for('studio', username=username) }}" class="back">← Voltar ao Studio</a>
+</div>
 </body>
 </html>

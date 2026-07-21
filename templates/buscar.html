@@ -1,10 +1,12 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="{{ lang_atual }}">
 <head>
     <meta charset="UTF-8">
-    <title>Buscar vídeos | Clippy</title>
+    <title>{{ t.buscar.titulo_pagina }} - {{ t.app.nome }}</title>
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link href="{{ static_url }}scripts/sidebar-static.css" rel="stylesheet">
     <style>
+        * { box-sizing: border-box; }
         body {
             margin: 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -79,66 +81,36 @@
         }
 
         /* Sidebar Retro */
-        .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 220px;
-            height: 100vh;
-            background: linear-gradient(to bottom, #3a3a5c, #1f1f38);
-            color: white;
-            padding: 20px;
-            box-shadow: 4px 0 15px rgba(0,0,0,0.6);
-            border-right: 3px solid #6a6aff;
-            overflow-y: auto;
-        }
-
-        .sidebar h2 {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 22px;
-            margin-bottom: 35px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.6);
-        }
-
-        .menu-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            padding: 5px 5px;
-            color: white;
-            text-decoration: none;
-            font-size: 16px;
-            border-radius: 8px;
-            background: linear-gradient(to right, rgba(255,255,255,0.08), transparent);
-            margin-bottom: 8px;
-            transition: all 0.3s;
-        }
-        .menu-item:hover {
-            background: linear-gradient(to right, #6a6aff, #9d9dff);
-            transform: translateX(8px);
-        }
-        .menu-item img { width: 26px; height: 26px; filter: brightness(1.1); }
     </style>
 </head>
 <body>
 
     <!-- Sidebar -->
-    <div class="sidebar">
-        <h2><img src="{{ static_url }}logo.png" style="width:28px;"> Clippy</h2>
-        <a href="/" class="menu-item"><img src="{{ static_url }}home.png"> Início</a>
-        <a href="/buscar" class="menu-item"><img src="{{ static_url }}search.png"> Pesquisar</a>
-        <a href="/canais" class="menu-item"><img src="{{ static_url }}channels.png"> Canais</a>
-        <a href="/create" class="menu-item"><img src="{{ static_url }}studio.png"> Studio</a>
-        <a href="/login" class="menu-item"><img src="{{ static_url }}user.png"> Login</a>
-    </div>
+    <nav class="sidebar">
+        <img class="logo" src="{{ static_url }}/logo.png" alt="Veja a Copa do Mundo de 2026!">
+        &ThinSpace;
+        <a href="/" class="menu-item"><img src="{{ static_url }}home.png"> {{ t.menu.inicio }}</a>
+        <a href="/buscar" class="menu-item"><img src="{{ static_url }}search.png"> {{ t.menu.pesquisar }}</a>
+        <a href="/shorts" class="menu-item"><img src="{{ static_url }}tia.png"> {{ t.menu.shorts }}</a>
+        <a href="{{ studio_link }}" {% if studio_link %} href="https://192.168.0.150:7072/create" {% endif %} class="menu-item"><img src="{{ static_url }}studio.png"> {{ t.menu.studio }}</a>
+        <a href="/aovivo" class="menu-item"><img src="{{ static_url }}w.png"> {{ t.menu.ao_vivo }}</a>
+        <hr style="border: 0.5px solid #555; margin: 20px 0;">
+        <a href="/conta" class="menu-item"><img src="{{ static_url }}user.png"> {{ t.menu.conta }}</a>
+        <a href="/historico" class="menu-item"><img src="{{ static_url }}story.png"> {{ t.menu.historico }}</a>
+        <a href="/buscar_contas" class="menu-item"><img src="{{ static_url }}users.png"> {{ t.menu.buscar_contas }}</a>
+        <a href="/chats" class="menu-item"><img src="{{ static_url }}users.png"> {{ t.menu.conversas }}</a>
+        <a href="#" class="menu-item"><img src="{{ static_url }}bot.png"> {{ t.menu.ia }}</a>
+        <hr style="border: 0.5px solid #555; margin: 20px 0;">
+        <a href="/configs" class="menu-item"><img src="{{ static_url }}icons/settings.png"> {{ t.menu.configuracoes }}</a>
+        <a href="/sobre" class="menu-item"><img src="{{ static_url }}cd.png"> {{ t.menu.sobre }}</a>
+        <a href="/ajuda" class="menu-item"><img src="{{ static_url }}help.png"> {{ t.menu.ajuda }}</a>
+    </nav>
 
-    <h1>🔍 Buscar vídeos e canais</h1>
-    <input type="text" id="searchInput" placeholder="Digite o título, descrição ou nome do canal...">
+    <h1>🔍 {{ t.buscar.buscar_videos }}</h1>
+    <input type="text" id="searchInput" placeholder="{{ t.buscar.input }}">
 
     <div class="container">
-        <h2 style="margin-top:40px; color:#ddd;">📺 Vídeos</h2>
+        <h2 style="margin-top:40px; color:#ddd;">📺 {{ t.buscar.videos }}</h2>
         <div class="grid" id="videoGrid">
             {% for video in videos %}
             <div class="video-card">
@@ -151,11 +123,11 @@
                 <p>{{ video.description }}</p>
             </div>
             {% else %}
-            <p>Nenhum vídeo encontrado.</p>
+            <p>{{ t.buscar.nenhum_video }}</p>
             {% endfor %}
         </div>
 
-        <h2 style="margin-top:50px; color:#ddd;">👤 Canais</h2>
+        <h2 style="margin-top:50px; color:#ddd;">👤 {{ t.buscar.canais }}</h2>
         <div class="grid">
             {% for canal in canais %}
             <div class="video-card">
@@ -166,7 +138,7 @@
                 <p>{{ canal.bio }}</p>
             </div>
             {% else %}
-            <p>Nenhum canal encontrado.</p>
+            <p>{{ t.buscar.nenhum_canal }}</p>
             {% endfor %}
         </div>
     </div>
@@ -180,7 +152,7 @@
         function render(videosFiltrados) {
             grid.innerHTML = '';
             if (videosFiltrados.length === 0) {
-                grid.innerHTML = '<p style="color:#aaa;">Nenhum vídeo encontrado.</p>';
+                grid.innerHTML = '<p style="color:#aaa;">{{ t.buscar.nenhum_video }}</p>';
                 return;
             }
             videosFiltrados.forEach(video => {
@@ -189,7 +161,7 @@
                 card.innerHTML = `
                     <a href="/player/${video.id}">
                         <video muted>
-                            <source src="/static/uploads/${video.filename}" type="video/mp4">
+                            <source src="{{ static_url }}/uploads/${video.filename}" type="video/mp4">
                         </video>
                         <h3>${video.title}</h3>
                     </a>

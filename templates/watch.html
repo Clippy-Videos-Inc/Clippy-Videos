@@ -3,419 +3,107 @@
 <head>
   <meta charset="UTF-8">
   <title>{{ video.title }} — Player interno</title>
-  <link rel="icon" href="{{ static_url }}static.png" type="image/png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ static_url }}scripts/player.css">
   <style>
-    :root { color-scheme: dark; }
-
-    html, body {
-      height: 100%;
-      margin: 0;
-      background: linear-gradient(135deg, #0a0a1f 0%, #1a1a2e 100%);
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      overflow: hidden;
-      color: #fff;
-    }
-
-    .pv-stage {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #000;
-    }
-
-    .pv-video {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      background: #000;
-    }
-
-    /* TELA FINAL */
-    .pv-endscreen {
-      position: absolute;
-      inset: 0;
-      background: rgba(10,10,31,0.92);
-      z-index: 20;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      padding: 20px;
-    }
-    
-    .pv-grid { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; margin-top: 25px; }
-
-    .pv-card {
-      width: 210px;
-      text-decoration: none;
-      color: white;
-      background: linear-gradient(145deg, #1f1f38, #2c2c4c);
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid #6a6aff;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.7);
-      transition: all 0.3s;
-    }
-    .pv-card:hover { transform: translateY(-6px) scale(1.04); box-shadow: 0 15px 30px rgba(106,106,255,0.5); }
-    .pv-card img { width: 100%; height: 118px; object-fit: cover; }
-    .pv-info { padding: 10px; font-size: 14.5px; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
-
-    .btn-replay {
-      margin-top: 25px;
-      padding: 12px 28px;
-      background: linear-gradient(#6a6aff, #9d9dff);
-      color: white;
-      border: none;
-      border-radius: 30px;
-      cursor: pointer;
-      font-weight: 700;
-      font-size: 17px;
-      box-shadow: 0 6px 18px rgba(106,106,255,0.6);
-    }
-
-    /* UI PRINCIPAL */
-    .pv-ui {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
+    .volume-container {
       display: flex;
-      flex-direction: column;
-      gap: 10px;
-      padding: 14px 20px 18px;
-      background: linear-gradient(to top, rgba(10,10,31,0.95), rgba(26,26,46,0.6));
-      color: #fff;
-      z-index: 30;
-      border-top: 3px solid #6a6aff;
-      box-shadow: 0 -8px 25px rgba(0,0,0,0.8);
-      transition: opacity 0.4s ease;
+      align-items: center;
+      gap: 8px;
+      width: 140px;
     }
-
-    /* BARRA DE PROGRESSO COM CAPÍTULOS */
-    .pv-scrub {
-      height: 8px;
-      background: linear-gradient(90deg, #1a1a2e, #2c2c4c);
-      border-radius: 9999px;
+    .volume-slider {
+      flex: 1;
+      height: 4px;
+      background: rgba(255,255,255,0.3);
+      border-radius: 2px;
       position: relative;
       cursor: pointer;
-      overflow: visible;
-      box-shadow: 0 0 12px rgba(106,106,255,0.6), inset 0 2px 6px rgba(255,255,255,0.15);
-      transition: height 0.2s ease;
     }
-    .pv-scrub:hover { height: 14px; }
-
-    .pv-scrub .fill {
-      position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
-      background: linear-gradient(90deg, #6a6aff, #9d9dff, #ff72ec);
-      border-radius: inherit;
-      box-shadow: 0 0 18px #6a6aff, 0 0 30px #ff72ec;
+    .volume-fill {
+      height: 100%;
+      background: #ff0000;
+      border-radius: 2px;
+      width: 100%;
       transition: width 0.1s linear;
-      z-index: 2;
     }
-
-    /* MARCADORES DE CAPÍTULOS */
-    .chapter-marker {
+    .volume-handle {
+      width: 12px;
+      height: 12px;
+      background: white;
+      border-radius: 50%;
       position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 3px;
-      background: rgba(255, 255, 255, 0.6);
-      z-index: 1;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .chapter-marker:hover {
-      width: 4px;
-      background: rgba(255, 255, 255, 0.9);
-    }
-
-    /* TOOLTIP DE CAPÍTULO */
-    .chapter-tooltip {
-      position: absolute;
-      bottom: 100%;
-      left: 50%;
-      transform: translateX(-50%) translateY(-8px);
-      background: linear-gradient(145deg, #1f1f38, #2c2c4c);
-      border: 2px solid #6a6aff;
-      border-radius: 8px;
-      padding: 6px 12px;
-      font-size: 13px;
-      font-weight: 600;
-      white-space: nowrap;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 4px rgba(0,0,0,0.5);
       opacity: 0;
-      pointer-events: none;
       transition: opacity 0.2s;
-      box-shadow: 0 4px 15px rgba(106,106,255,0.6);
     }
-    .chapter-marker:hover .chapter-tooltip {
+    .volume-slider:hover .volume-handle {
       opacity: 1;
     }
 
-    .pv-scrub .dot {
-      position: absolute; top: 50%; transform: translate(-50%, -50%); left: 0%;
-      width: 16px; height: 16px; background: #fff; border: 3px solid #6a6aff;
-      border-radius: 50%; box-shadow: 0 0 20px #6a6aff; pointer-events: none; opacity: 0;
-      transition: all 0.2s;
-      z-index: 3;
+    /* ==== CARDS (vídeos relacionados durante a reprodução) ==== */
+    .cards-btn {
+      position: relative;
     }
-    .pv-scrub:hover .dot { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-
-    /* PRÉ-VISUALIZAÇÃO */
-    #previewBox {
-      position: absolute; bottom: 70px; display: none;
-      background: linear-gradient(145deg, #1f1f38, #2c2c4c);
-      border: 3px solid #6a6aff;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 0 30px rgba(106,106,255,0.8);
-      z-index: 9999;
-      pointer-events: none;
-      text-align: center;
-      min-width: 180px;
-    }
-    #previewTime {
-      padding: 6px 12px;
-      font-size: 15px;
-      font-weight: 700;
-      color: #fff;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.9);
-      background: rgba(0,0,0,0.4);
-    }
-    #previewChapter {
-      padding: 4px 12px;
-      font-size: 12px;
-      color: #9d9dff;
-      background: rgba(0,0,0,0.6);
-    }
-
-    .pv-controls {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      margin-top: 6px;
-    }
-    
-    .btn {
-      background: linear-gradient(#3a3a5c, #25253d);
-      border: 2px solid #6a6aff;
-      padding: 10px;
-      border-radius: 14px;
-      cursor: pointer;
-      transition: all 0.3s;
-      width: 46px;
-      height: 46px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
-    }
-    .btn:hover {
-      background: linear-gradient(#6a6aff, #9d9dff);
-      transform: scale(1.1);
-      box-shadow: 0 0 20px #6a6aff;
-    }
-    .btn img { width: 26px; height: 26px; filter: brightness(1.15); }
-
-    .pv-title {
+    .cards-btn.cards-novo::after {
+      content: '';
       position: absolute;
-      top: 14px;
-      left: 18px;
-      font-size: 19px;
-      font-weight: 700;
-      background: rgba(10,10,31,0.75);
-      padding: 8px 16px;
-      border-radius: 10px;
-      border: 1px solid #6a6aff;
-      color: #fff;
-      text-shadow: 0 2px 6px rgba(0,0,0,0.9);
-      z-index: 10;
-      transition: opacity 0.4s ease;
+      top: 4px; right: 4px;
+      width: 8px; height: 8px;
+      background: #ff2d8d;
+      border-radius: 50%;
+      box-shadow: 0 0 6px #ff2d8d;
     }
-
-    .pv-time { margin-left: auto; opacity: 0.95; font-size: 15px; font-weight: 600; }
-
-    .hide-cursor { cursor: none !important; }
-    .hidden-ui { opacity: 0 !important; pointer-events: none !important; }
-
-    /* ÍCONE CENTRAL */
-    #centerIcon {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 15;
+    .cards-panel {
       display: none;
-      animation: fadeInOut 0.65s ease;
-    }
-    @keyframes fadeInOut {
-      0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-      50% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
-      100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-    }
-
-    /* MENU DE CONFIGURAÇÕES */
-    .settings-menu {
       position: absolute;
-      bottom: 62px;
-      right: 8px;
-      background: linear-gradient(145deg, #1f1f38, #2c2c4c);
-      border: 3px solid #6a6aff;
-      border-radius: 12px;
-      padding: 10px;
-      box-shadow: 0 0 30px rgba(106,106,255,0.8);
-      min-width: 200px;
-      z-index: 9999;
-      display: none;
-    }
-
-    .settings-menu.active { display: block; }
-
-    .menu-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      width: 98%;
-      padding: 12px 1px;
-      margin-bottom: 6px;
-      background: linear-gradient(#3a3a5c, #25253d);
-      color: #fff;
-      font-size: 15px;
-      font-weight: 600;
-      border: 2px solid #5e5eff;
+      bottom: 46px;
+      right: 0;
+      width: 260px;
+      max-height: 320px;
+      overflow-y: auto;
+      background: rgba(20,20,35,0.97);
+      border: 1px solid rgba(106,106,255,0.5);
       border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+      z-index: 50;
     }
-    .menu-item:last-child { margin-bottom: 0; }
-    .menu-item:hover {
-      background: linear-gradient(#6a6aff, #9d9dff);
-      border-color: #9d9dff;
-      transform: translateX(4px);
-    }
-
-    .menu-item-label {
+    .cards-panel.active { display: block; }
+    .card-item {
       display: flex;
       align-items: center;
       gap: 10px;
+      padding: 10px;
+      text-decoration: none;
+      color: #fff;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      transition: background 0.15s;
     }
-
-    .menu-item-value {
+    .card-item:last-child { border-bottom: none; }
+    .card-item:hover { background: rgba(106,106,255,0.2); }
+    .card-item img {
+      width: 64px;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      border-radius: 4px;
+      flex-shrink: 0;
+      background: #333;
+    }
+    .card-item span {
       font-size: 13px;
-      opacity: 0.8;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
-
-    /* SUBMENU (VELOCIDADE E QUALIDADE) */
-    .submenu {
-      position: absolute;
-      bottom: 0;
-      right: 100%;
-      margin-right: 10px;
-      background: linear-gradient(145deg, #1f1f38, #2c2c4c);
-      border: 3px solid #6a6aff;
-      border-radius: 12px;
-      padding: 10px;
-      box-shadow: 0 0 30px rgba(106,106,255,0.8);
-      min-width: 160px;
-      display: none;
-    }
-
-    .submenu.active { display: block; }
-
-    .submenu-item {
-      display: block;
-      width: 80%;
-      padding: 10px 16px;
-      margin-bottom: 6px;
-      background: linear-gradient(#3a3a5c, #25253d);
-      color: #fff;
-      font-size: 14px;
-      font-weight: 600;
-      border: 2px solid #5e5eff;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      text-align: left;
-    }
-    .submenu-item:last-child { margin-bottom: 0; }
-    .submenu-item:hover {
-      background: linear-gradient(#6a6aff, #9d9dff);
-      border-color: #9d9dff;
-      transform: translateX(-4px);
-    }
-    .submenu-item.active {
-      background: linear-gradient(#6a6aff, #9d9dff);
-      border-color: #ff72ec;
-      box-shadow: 0 0 15px rgba(255, 114, 236, 0.6);
-    }
-
-    /* MENU DE LEGENDAS */
-    .subtitle-menu {
-      position: absolute;
-      bottom: 62px;
-      right: 68px;
-      background: linear-gradient(145deg, #1f1f38, #2c2c4c);
-      border: 3px solid #6a6aff;
-      border-radius: 12px;
-      padding: 10px;
-      box-shadow: 0 0 30px rgba(106,106,255,0.8);
-      min-width: 180px;
-      z-index: 9999;
-      display: none;
-    }
-
-    .subtitle-option {
-      display: block;
-      width: 100%;
-      padding: 10px 16px;
-      margin-bottom: 6px;
-      background: linear-gradient(#3a3a5c, #25253d);
-      color: #fff;
-      font-size: 14px;
-      font-weight: 600;
-      border: 2px solid #5e5eff;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      text-align: left;
-    }
-    .subtitle-option:last-child { margin-bottom: 0; }
-    .subtitle-option:hover {
-      background: linear-gradient(#6a6aff, #9d9dff);
-      border-color: #9d9dff;
-      transform: translateX(4px);
-    }
-    .subtitle-option.active {
-      background: linear-gradient(#6a6aff, #9d9dff);
-      border-color: #ff72ec;
-      box-shadow: 0 0 15px rgba(255, 114, 236, 0.6);
-    }
-
-    /* CAPÍTULO ATUAL */
-    .current-chapter {
-      position: absolute;
-      top: 60px;
-      left: 18px;
-      background: rgba(10,10,31,0.85);
-      padding: 8px 16px;
-      border-radius: 8px;
-      border: 1px solid #6a6aff;
-      font-size: 14px;
-      font-weight: 600;
-      color: #9d9dff;
-      z-index: 10;
-      transition: opacity 0.4s ease;
-      display: none;
-    }
-
-    .current-chapter.active {
-      display: block;
+    .cards-vazio {
+      padding: 16px;
+      color: #999;
+      font-size: 13px;
+      text-align: center;
     }
   </style>
 </head>
@@ -432,7 +120,7 @@
     <div class="pv-endscreen" id="endScreen">
       <h3 style="font-size:1.6rem; margin-bottom:10px;">A seguir</h3>
       <div class="pv-grid">
-        {% for rel in relacionados[:3] %}
+        {% for rel in relacionados[:2] %}
         <a href="/watch/{{ rel.id }}" class="pv-card">
           <img src="{{ static_url }}uploads/{{ rel.thumb }}" alt="{{ rel.title }}">
           <div class="pv-info">{{ rel.title }}</div>
@@ -461,10 +149,22 @@
 
       <div class="pv-controls">
         <div style="display: flex; align-items: center; gap: 10px;">
-          <button class="btn" id="btnTogglePlay"><img id="playIcon" src="{{ static_url }}icons/play.png" alt="Play"></button>
+          <button class="btn" id="btnTogglePlay" alt="Play/Pause"><img id="playIcon" src="{{ static_url }}icons/play.png" alt="Play"></button>
           <div style="position: relative;">
-            <button class="btn" id="btnToggleMute"><img id="volumeIcon" src="{{ static_url }}icons/unmute.png" alt="Volume"></button>
+          <!-- === SLIDER DE VOLUME === -->
+          <div class="volume-container">
+            <button class="btn" id="btnToggleMute">
+              <img id="volumeIcon" src="{{ static_url }}icons/unmute.png" alt="Volume">
+            </button>
+            <div class="volume-slider" id="volumeSlider">
+              <div class="volume-fill" id="volumeFill"></div>
+              <div class="volume-handle" id="volumeHandle"></div>
+            </div>
           </div>
+          </div>
+          
+          
+
           <span class="pv-time" id="time">00:00 / 00:00</span>
         </div>
 
@@ -509,19 +209,20 @@
                   <div class="submenu-item" data-speed="1.5">1.5x</div>
                   <div class="submenu-item" data-speed="1.75">1.75x</div>
                   <div class="submenu-item" data-speed="2">2x</div>
+                  <div class="submenu-item" data-speed="3">3x</div>
                 </div>
               </div>
 
               <!-- Qualidade -->
               <div class="menu-item" id="qualityMenuItem">
                 <span class="menu-item-label">
-                  🎬 Qualidade
+                  📺 Qualidade
                 </span>
-                <span class="menu-item-value" id="qualityValue">Auto</span>
+                <span class="menu-item-value" id="qualityValue">Do Vídeo</span>
                 
                 <!-- Submenu de Qualidade -->
                 <div class="submenu" id="qualitySubmenu">
-                  <div class="submenu-item active" data-src="{{ static_url }}uploads/{{ video.filename }}">Automática</div>
+                  <div class="submenu-item active" data-src="{{ static_url }}uploads/{{ video.filename }}">Do Vídeo</div>
                   {% if video.filename_480p %}
                   <div class="submenu-item" data-src="{{ static_url }}uploads/{{ video.filename_480p }}">480p</div>
                   {% endif %}
@@ -536,6 +237,15 @@
             </div>
           </div>
 
+          {% if video.cards %}
+          <div class="cards-btn" style="position: relative;">
+            <button class="btn" id="btnCards" title="Vídeos relacionados">
+              <span style="font-size: 20px;">🔗</span>
+            </button>
+            <div class="cards-panel" id="cardsPanel"></div>
+          </div>
+          {% endif %}
+
           <button class="btn" id="btnFullscreen"><img src="{{ static_url }}icons/fullscreen.png" alt="Fullscreen"></button>
         </div>
       </div>
@@ -545,7 +255,7 @@
   </div>
 
   <script>
-    const vid = document.getElementById('vid');
+        const vid = document.getElementById('vid');
     const scrub = document.getElementById('scrub');
     const fill = document.getElementById('fill');
     const dot = document.getElementById('dot');
@@ -564,6 +274,7 @@
 
     let hideTimeout, lastMoveTime = Date.now();
     let chapters = [];
+    const CARDS = {{ (video.cards or []) | tojson }};
 
     // CARREGAR CAPÍTULOS
     async function loadChapters() {
@@ -661,8 +372,16 @@
     function updateUI() {
       const dur = vid.duration || 0;
       const cur = vid.currentTime || 0;
+      const pct = dur ? (cur / dur) * 100 : 0;
+      
       timeEl.textContent = `${fmt(cur)} / ${fmt(dur)}`;
-      fill.style.width = dur ? (cur / dur) * 100 + '%' : '0%';
+      fill.style.width = pct + '%';
+      
+      // Mover o dot junto com o fill
+      if (!scrub.matches(':hover')) {
+        dot.style.left = pct + '%';
+      }
+      
       updateCurrentChapter();
     }
 
@@ -708,6 +427,9 @@
       const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       const previewSeconds = (vid.duration || 0) * pct;
       
+      // Mover o dot para a posição do mouse
+      dot.style.left = (pct * 100) + '%';
+      
       previewTime.textContent = fmt(previewSeconds);
       
       const chapterName = getChapterAtTime(previewSeconds);
@@ -721,7 +443,14 @@
       previewBox.style.left = `calc(${pct * 100}% - 90px)`;
       previewBox.style.display = 'block';
     });
-    scrub.addEventListener('mouseleave', () => previewBox.style.display = 'none');
+    scrub.addEventListener('mouseleave', () => {
+      previewBox.style.display = 'none';
+      // Retornar o dot para a posição do progresso atual
+      const dur = vid.duration || 0;
+      const cur = vid.currentTime || 0;
+      const pct = dur ? (cur / dur) * 100 : 0;
+      dot.style.left = pct + '%';
+    });
 
     // Play/Pause
     function togglePlay() {
@@ -737,11 +466,11 @@
     document.getElementById('btnTogglePlay').onclick = togglePlay;
     vid.addEventListener('click', togglePlay);
 
-    vid.addEventListener('play', () => playIcon.src = "{{ static_url }}icons/pause.png");
-    vid.addEventListener('pause', () => playIcon.src = "{{ static_url }}icons/play.png");
+    vid.addEventListener('play', () => playIcon.src = "{{ static_url }}/icons/pause.png");
+    vid.addEventListener('pause', () => playIcon.src = "{{ static_url }}/icons/play.png");
 
     function animarIconeCentral(tipo) {
-      let src = tipo === 'play' ? "{{ static_url }}icons/play.png" : "{{ static_url }}icons/pause.png";
+      let src = tipo === 'play' ? "{{ static_url }}/icons/play.png" : "{{ static_url }}/icons/pause.png";
       centerIconImg.src = src;
       centerIcon.style.display = 'flex';
       setTimeout(() => centerIcon.style.display = 'none', 650);
@@ -877,6 +606,49 @@
       });
     });
 
+    // MENU DE CARDS (vídeos relacionados que aparecem conforme o vídeo avança)
+    const btnCards = document.getElementById('btnCards');
+    const cardsPanel = document.getElementById('cardsPanel');
+    let cardsJaVistos = 0;
+
+    function renderCardsPanel() {
+      const atual = vid.currentTime || 0;
+      const disponiveis = CARDS.filter(c => (c.time || 0) <= atual);
+
+      if (disponiveis.length === 0) {
+        cardsPanel.innerHTML = '<div class="cards-vazio">Nenhum card disponível ainda</div>';
+        return;
+      }
+
+      cardsPanel.innerHTML = disponiveis.map(c => `
+        <a href="/watch/${c.video_id}" class="card-item">
+          ${c.thumb ? `<img src="{{ static_url }}uploads/${c.thumb}" alt="">` : '<div style="width:64px;aspect-ratio:16/9;background:#333;border-radius:4px;flex-shrink:0;"></div>'}
+          <span>${c.title}</span>
+        </a>
+      `).join('');
+    }
+
+    if (btnCards) {
+      btnCards.addEventListener('click', (e) => {
+        e.stopPropagation();
+        renderCardsPanel();
+        cardsPanel.classList.toggle('active');
+        settingsMenu.classList.remove('active');
+        subtitleMenu.style.display = 'none';
+        btnCards.classList.remove('cards-novo');
+      });
+
+      // Mostra um indicador visual quando um novo card fica disponível
+      vid.addEventListener('timeupdate', () => {
+        const atual = vid.currentTime || 0;
+        const count = CARDS.filter(c => (c.time || 0) <= atual).length;
+        if (count > cardsJaVistos && !cardsPanel.classList.contains('active')) {
+          btnCards.classList.add('cards-novo');
+        }
+        cardsJaVistos = count;
+      });
+    }
+
     // Fechar menus ao clicar fora
     document.addEventListener('click', (e) => {
       if (!btnSettings.contains(e.target) && !settingsMenu.contains(e.target)) {
@@ -886,6 +658,9 @@
       }
       if (!btnSubtitles.contains(e.target) && !subtitleMenu.contains(e.target)) {
         subtitleMenu.style.display = 'none';
+      }
+      if (btnCards && !btnCards.contains(e.target) && !cardsPanel.contains(e.target)) {
+        cardsPanel.classList.remove('active');
       }
     });
 
@@ -913,6 +688,74 @@
       }
     });
 
+// ==================== NOVO: CONTROLE DE VOLUME ====================
+    const volumeSlider = document.getElementById('volumeSlider');
+    const volumeFill = document.getElementById('volumeFill');
+    const volumeHandle = document.getElementById('volumeHandle');
+    let isDraggingVolume = false;
+
+    function updateVolumeUI(volume) {
+      const percent = volume * 100;
+      volumeFill.style.width = percent + '%';
+      volumeHandle.style.left = percent + '%';
+    }
+
+    function setVolume(volume) {
+      vid.volume = Math.max(0, Math.min(1, volume));
+      updateVolumeUI(vid.volume);
+      
+      // Atualiza ícone de mute
+      volumeIcon.src = vid.volume === 0 
+        ? "{{ static_url }}icons/mute.png" 
+        : "{{ static_url }}icons/unmute.png";
+    }
+
+    // Clique no slider
+    volumeSlider.addEventListener('click', (e) => {
+      const rect = volumeSlider.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const percent = clickX / rect.width;
+      setVolume(percent);
+    });
+
+    // Drag no slider
+    volumeSlider.addEventListener('mousedown', () => {
+      isDraggingVolume = true;
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDraggingVolume) return;
+      const rect = volumeSlider.getBoundingClientRect();
+      let percent = (e.clientX - rect.left) / rect.width;
+      percent = Math.max(0, Math.min(1, percent));
+      setVolume(percent);
+    });
+
+    document.addEventListener('mouseup', () => {
+      isDraggingVolume = false;
+    });
+
+    // Botão de Mute
+    document.getElementById('btnToggleMute').onclick = () => {
+      if (vid.volume > 0) {
+        vid.dataset.lastVolume = vid.volume;  // salva volume anterior
+        setVolume(0);
+      } else {
+        const lastVol = parseFloat(vid.dataset.lastVolume) || 0.7;
+        setVolume(lastVol);
+      }
+    };
+
+    // Inicialização do volume
+    vid.addEventListener('loadedmetadata', () => {
+      vid.volume = 0.7;                    // volume inicial
+      updateVolumeUI(0.7);
+    });
+
+    // Atualiza UI quando volume mudar por outros meios
+    vid.addEventListener('volumechange', () => {
+      updateVolumeUI(vid.volume);
+    });
     resetHideTimer();
   </script>
 </body>

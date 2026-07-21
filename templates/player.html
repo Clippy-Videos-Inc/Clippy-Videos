@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <title>
-    {% if tipo == "video" %}{{ video.title }}{% else %}{{ live.title }}{% endif %} | Clippy Videos
+    {{ video.title }} - Clippy Videos
   </title>
-  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+  <link rel="icon" href="{{ static_url }}/favicon.ico" type="image/x-icon">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
- 
+  <link href="{{ static_url }}scripts/sidebar.css" rel="stylesheet">
   <style>
     :root {
       --primary: #6a6aff;
@@ -43,53 +43,6 @@
     #menuToggle:hover { transform: scale(1.1); }
     #menuToggle img { width: 24px; height: 24px; filter: brightness(1.2); }
 
-    /* Sidebar Retro */
-    .sidebar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 250px;
-      height: 100vh;
-      background: linear-gradient(to bottom, #3a3a5c, #1f1f38);
-      color: white;
-      padding: 85px 20px 20px;
-      box-shadow: 6px 0 20px rgba(0,0,0,0.7);
-      border-right: 4px solid #6a6aff;
-      transform: translateX(-100%);
-      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 1000;
-      overflow-y: auto;
-    }
-    .sidebar.active { transform: translateX(0); }
-
-    .sidebar h2 {
-      font-size: 1.35rem;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 30px;
-      text-shadow: 0 2px 6px rgba(0,0,0,0.7);
-    }
-
-    .menu-item {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 14px 16px;
-      color: #e0e0ff;
-      text-decoration: none;
-      border-radius: 10px;
-      margin-bottom: 6px;
-      background: linear-gradient(to right, rgba(255,255,255,0.08), transparent);
-      transition: all 0.3s;
-    }
-    .menu-item:hover {
-      background: linear-gradient(to right, #6a6aff, #9d9dff);
-      color: white;
-      transform: translateX(10px);
-    }
-    .menu-item img { width: 22px; height: 22px; filter: brightness(1.1); }
-
     /* Container Principal */
     .container {
       display: grid;
@@ -107,8 +60,8 @@
     .video-section iframe {
       width: 100%;
       aspect-ratio: 16 / 9;
-      border: 3px solid #6a6aff;
-      border-radius: 14px;
+      border: 0px solid #6a6aff;
+      border-radius: 7px;
       background: #000;
       box-shadow: 0 12px 30px rgba(0,0,0,0.7),
                   inset 0 4px 12px rgba(255,255,255,0.1);
@@ -168,8 +121,8 @@
     }
     .btn-like { background: linear-gradient(#6a6aff, #9d9dff); color: white; }
     .btn-dislike { background: linear-gradient(#ff2d8d, #ff6ab3); color: white; }
-    .btn-pro { background: linear-gradient(#00c853, #64dd17); color: white; }
-    .btn-add-playlist { background: rgba(255,255,255,0.15); color: white; border: 1px solid #6a6aff; }
+    .btn-pro { background: linear-gradient(#00c853, #64dd17); color: white; text-decoration: none; border-radius: 100px;}
+    .btn-add-playlist { background: rgba(255,255,255,0.15); color: white; border: 1px solid #6a6aff; text-decoration: none;}
 
     .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(106,106,255,0.4); }
 
@@ -210,6 +163,14 @@
       border-radius: 8px;
       border: 1px solid #6a6aff;
     }
+    .btn-like img {
+      width: 40px
+      height: 40px
+    }
+    .btn-deslike img {
+      width: 40px
+      height: 40px
+    }
   </style>
 </head>
 <body>
@@ -218,30 +179,33 @@
     <img src="{{ static_url }}menu.png" alt="Menu">
   </button>
 
-  <nav class="sidebar" id="sidebar">
-    <h2><img src="{{ static_url }}clip.gif" alt="" style="width:32px"> Clippy Vídeos</h2>
-    <a href="/" class="menu-item"><img src="{{ static_url }}home.png"> Início</a>
-    <a href="/buscar" class="menu-item"><img src="{{ static_url }}search.png"> Pesquisar</a>
-    <a href="/shorts" class="menu-item"><img src="{{ static_url }}tia.png"> Shorts</a>
-    <a href="/create" class="menu-item"><img src="{{ static_url }}studio.png"> Studio</a>
-    {% if studio_link %}
-      <a href="{{ studio_link }}" class="menu-item"><img src="{{ static_url }}studio.png"> Entrar no Studio</a>
-    {% endif %}
-    <a href="/login" class="menu-item"><img src="{{ static_url }}user.png"> Login</a>
-    <a href="/aovivo" class="menu-item"><img src="{{ static_url }}w.png"> Ao Vivo</a>
-  </nav>
+  <nav id="sidebar" class="sidebar closed">
+        <img class="logo" src="{{ static_url }}/logo.png" alt="Veja a Copa do Mundo de 2026!">
+        &ThinSpace;
+        <a href="/" class="menu-item"><img src="{{ static_url }}home.png"> Início</a>
+        <a href="/buscar" class="menu-item"><img src="{{ static_url }}search.png"> Pesquisar</a>
+        <a href="/shorts" class="menu-item"><img src="{{ static_url }}tia.png"> Shorts</a>
+        <a href="{{ studio_link }}" {% if studio_link %} href="https://192.168.0.150:7072/create" {% endif %} class="menu-item"><img src="{{ static_url }}studio.png"> Studio</a>
+        <a href="/aovivo" class="menu-item"><img src="{{ static_url }}w.png"> Ao Vivo</a>
+        <hr style="border: 0.5px solid #555; margin: 20px 0;">
+        <a href="/conta" class="menu-item"><img src="{{ static_url }}user.png"> Conta</a>
+        <a href="/historico" class="menu-item"><img src="{{ static_url }}story.png"> histórico</a>
+        <a href="/buscar_contas" class="menu-item"><img src="{{ static_url }}users.png"> buscar contas</a>
+        <a href="/chats" class="menu-item"><img src="{{ static_url }}users.png"> conversas</a>
+        <a href="#" class="menu-item"><img src="{{ static_url }}bot.png"> IA</a>
+        <hr style="border: 0.5px solid #555; margin: 20px 0;">
+        <a href="/configs" class="menu-item"><img src="{{ static_url }}icons/settings.png"> Configurações</a>
+        <a href="/sobre" class="menu-item"><img src="{{ static_url }}cd.png"> Sobre</a>
+        <a href="/ajuda" class="menu-item"><img src="{{ static_url }}help.png"> Ajuda</a>
+    </nav>
 
   <div class="container">
     <main class="video-section">
-      {% if tipo == "video" %}
         <iframe src="{{ url_for('watch', video_id=video.id) }}" allowfullscreen></iframe>
-      {% else %}
-        <iframe src="{{ url_for('lives', live_id=live.id) }}" allowfullscreen></iframe>
-      {% endif %}
-
+    
       <div class="video-info">
         <h1>
-          {% if tipo == "video" %}{{ video.title }}{% else %}🔴 {{ live.title }}{% endif %}
+          {{ video.title }}
         </h1>
 
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
@@ -261,11 +225,18 @@
           <div class="action-bar">
             {% if tipo == "video" %}
               <div style="display: flex; gap: 10px;">
-                <button class="btn btn-like" id="likeBtn">👍 <span id="likeCount">{{ likes.get(video.id|string, 0) }}</span></button>
-                <button class="btn btn-dislike" id="dislikeBtn">👎</button>
+                  <button class="btn btn-like" id="likeBtn">
+                    <img src="{{ static_url }}/icons/like.png" style="width: 30px; height: 30px;"> <span id="likeCount">{{ likes_count }}</span>
+                  </button>
+
+                  <button class="btn btn-dislike" id="dislikeBtn">
+                  <img src="{{ static_url }}/icons/deslike.png" style="width: 30px; height: 30px;"> <span id="dislikeCount">{{ dislikes_count }}</span>
+                </button>
               </div>
               {% if session.get('username') %}
                 <button class="btn btn-add-playlist" id="addToPlaylistBtn">➕ Adicionar à Playlist</button>
+                <a class="btn btn-add-playlist" href="/download/{{ video.id }}">📂 Download</a>
+                <a class="btn btn-add-playlist" href="/pro">💰 comprar pro</a>
               {% endif %}
             {% else %}
               <div class="btn" style="background: #ff2d8d;">👥 {{ live.viewers or 0 }} assistindo agora</div>
@@ -274,11 +245,7 @@
         </div>
 
         <div style="margin-top: 20px; padding: 14px; background: rgba(0,0,0,0.4); border-radius: 10px; font-size: 0.97rem;">
-          {% if tipo == "video" %}
             <strong>{{ video.views }} visualizações</strong> • {{ video.description }}
-          {% else %}
-            Transmissão ao vivo • {{ live.channel }}
-          {% endif %}
         </div>
       </div>
 
@@ -326,20 +293,52 @@
     // Menu toggle
     const toggleBtn = document.getElementById('menuToggle');
     const sidebar = document.getElementById('sidebar');
-    toggleBtn.addEventListener('click', () => {
-      sidebar.classList.toggle('active');
-    });
+   toggleBtn.addEventListener('click', () => {
+    if (window.innerWidth <= 900) {
+        sidebar.classList.toggle('active');
+    } else {
+        sidebar.classList.toggle('closed');
+    }
+});
 
-    // Like button
-    {% if tipo == "video" %}
-    document.getElementById('likeBtn').addEventListener('click', () => {
-      fetch('/like_video', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id: "{{ video.id }}" }) })
-        .then(() => {
-          let count = document.getElementById('likeCount');
-          count.innerText = parseInt(count.innerText) + 1;
-        });
+    function react(type){
+
+    fetch('/react_video', {
+        method: 'POST',
+        headers: {
+            'Content-Type':'application/json'
+        },
+        body: JSON.stringify({
+            id: "{{ video.id }}",
+            reaction: type
+        })
+    })
+    .then(r => {
+
+        if(r.status === 403){
+            alert("Faça login para avaliar vídeos");
+            return null;
+        }
+
+        return r.json();
+    })
+    .then(data => {
+
+        if(!data) return;
+
+        document.getElementById('likeCount').innerText =
+            data.likes;
+
+        document.getElementById('dislikeCount').innerText =
+            data.dislikes;
     });
-    {% endif %}
+}
+
+document.getElementById('likeBtn')
+    .addEventListener('click', () => react(1));
+
+document.getElementById('dislikeBtn')
+    .addEventListener('click', () => react(-1));
   </script>
 </body>
 </html>

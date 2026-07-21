@@ -2,18 +2,21 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Criar Canal | ClipEngine</title>
+    <title>Criar Canal - Clippy Studio</title>
     <style>
         body { font-family: Arial; background: #f0f0f0; padding: 40px; }
         form { background: white; padding: 20px; border-radius: 8px; max-width: 400px; margin: auto; }
         input, textarea, button { width: 100%; margin-bottom: 15px; padding: 10px; font-size: 16px; }
-        button { background-color: #e50914; color: white; border: none; cursor: pointer; }
+        button { background-color: #e50914; color: white; border: none; cursor: pointer; border-radius: 10px; }
     </style>
 </head>
 <body>
-    <h1>Criar seu canal no Play Studio</h1>
+    <h1>Criar seu canal no Clippy Studio</h1>
+    <p style="text-align:center; max-width:400px; margin:0 auto 15px; color:#555;">
+        Seu canal vai usar o mesmo @ da sua conta:
+        <strong>@{{ username }}</strong>
+    </p>
     <form method="POST" action="/create" enctype="multipart/form-data">
-    <input type="text" name="username" placeholder="Seu @ (sem o @)" required>
     <input type="text" name="display_name" placeholder="Nome do canal" required>
     <textarea name="bio" placeholder="Descrição do canal" rows="4" required></textarea>
 

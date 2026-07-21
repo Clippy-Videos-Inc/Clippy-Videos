@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="{{ lang_atual }}">
 <head>
     <meta charset="UTF-8">
-    <title>Clippy Vídeos</title>
+    <title>{{ t.app.nome }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="{{ static_url }}favicon.ico" type="image/x-icon">
 
@@ -17,26 +17,16 @@
             display: flex;
         }
 
-        /* Sidebar com degradê estilo 2010s */
         .sidebar {
             width: 220px;
             background: linear-gradient(to bottom, #3a3a5c, #1f1f38);
-            color: white;
+            color: #6a6aff;
             height: 100vh;
             padding: 20px;
             position: fixed;
             overflow-y: auto;
             box-shadow: 4px 0 15px rgba(0,0,0,0.6);
             border-right: 3px solid #6a6aff;
-        }
-        
-        .sidebar h2 {
-            font-size: 1.3rem;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 35px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
 
         .menu-item {
@@ -59,7 +49,6 @@
         }
         .menu-item img { width: 26px; height: 26px; filter: brightness(1.1); }
 
-        /* Conteúdo Principal */
         .main {
             margin-left: 220px;
             padding: 30px;
@@ -68,19 +57,50 @@
             background: linear-gradient(135deg, #1f1f38 0%, #2c2c4c 100%);
         }
 
-        /* Grid de Vídeos */
+        /* ── ABAS ── */
+        .feed-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 28px;
+            border-bottom: 2px solid rgba(106,106,255,0.25);
+            padding-bottom: 0;
+        }
+        .tab-btn {
+            background: none;
+            border: none;
+            color: #7070aa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 0.97rem;
+            font-weight: 700;
+            padding: 11px 22px 13px;
+            cursor: pointer;
+            border-radius: 10px 10px 0 0;
+            transition: all 0.2s;
+            position: relative;
+            bottom: -2px;
+            white-space: nowrap;
+        }
+        .tab-btn:hover { color: #c0c0ff; background: rgba(106,106,255,0.08); }
+        .tab-btn.ativa {
+            color: #fff;
+            background: linear-gradient(to bottom, rgba(106,106,255,0.18), transparent);
+            border-bottom: 3px solid #6a6aff;
+        }
+
+        .feed-section { display: none; }
+        .feed-section.ativa { display: block; }
+
+        /* ── CARDS ── */
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
             gap: 25px;
         }
-
         .video-card {
             background: linear-gradient(145deg, #3a3a5c, #25253d);
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.5),
-                        inset 0 2px 6px rgba(255,255,255,0.15);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5), inset 0 2px 6px rgba(255,255,255,0.15);
             transition: all 0.3s ease;
             border: 1px solid #5e5eff;
         }
@@ -88,56 +108,44 @@
             transform: translateY(-8px) scale(1.03);
             box-shadow: 0 15px 30px rgba(106,106,255,0.4);
         }
-        
-        .video-card img { 
-            width: 100%; 
-            aspect-ratio: 16/9; 
-            object-fit: cover;
-            filter: brightness(1.08) contrast(1.05);
-        }
+        .video-card img { width: 100%; aspect-ratio: 16/9; object-fit: cover; filter: brightness(1.08) contrast(1.05); }
+        .video-thumb-placeholder { width: 100%; aspect-ratio: 16/9; background: linear-gradient(45deg, #444, #222); }
+        .video-info { padding: 14px; background: linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.6)); }
+        .video-info strong { display: block; margin-bottom: 6px; color: #fff; font-size: 1.05rem; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+        .video-info small { color: #c0c0ff; font-size: 0.9rem; }
+        .video-info p { margin: 4px 0 0; color: #a0a0ff; font-size: 0.92rem; }
 
-        .video-info { 
-            padding: 14px; 
-            background: linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.6));
-        }
-        .video-info strong { 
-            display: block; 
-            margin-bottom: 6px; 
+        .badge-alta {
+            display: inline-block;
+            background: linear-gradient(90deg, #ff5e5e, #ff9d4a);
             color: #fff;
-            font-size: 1.05rem;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.7);
-        }
-        .video-info small { 
-            color: #c0c0ff; 
-            font-size: 0.9rem;
-        }
-        .video-info p {
-            margin: 4px 0 0;
-            color: #a0a0ff;
-            font-size: 0.92rem;
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 20px;
+            margin-top: 5px;
         }
 
-        /* Loading */
-        .loading {
-            text-align: center;
-            padding: 40px;
-            font-size: 1.2rem;
-            color: #aaa;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-        }
+        .loading { text-align: center; padding: 40px; font-size: 1.1rem; color: #7070aa; }
 
-        .logo { 
-            width: 180px; 
-            height: auto;
-            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
+        .feed-vazio { text-align: center; padding: 70px 20px; color: #6060aa; }
+        .feed-vazio .icone { font-size: 3rem; margin-bottom: 14px; }
+        .feed-vazio p { font-size: 1.1rem; margin: 0 0 14px; }
+        .feed-vazio a {
+            color: #8888ff; font-weight: bold; text-decoration: none;
+            border: 1px solid #5555cc; padding: 8px 20px; border-radius: 8px; transition: all 0.2s;
         }
+        .feed-vazio a:hover { background: rgba(106,106,255,0.2); color: #fff; }
+
+        .logo { width: 180px; height: auto; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6)); }
     </style>
+
     <script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('https://192.168.0.150:7071/sw.js')
-                .then(reg => console.log('Service Worker registrado com sucesso!', reg.scope))
-                .catch(err => console.log('Falha ao registrar Service Worker:', err));
+    if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+            navigator.serviceWorker.register("/offline.js")
+                .then(() => console.log("Offline.js carregado"))
+                .catch(err => console.error("Erro:", err));
         });
     }
     </script>
@@ -145,102 +153,210 @@
 <body>
 
     <nav class="sidebar">
-        <img class="logo" src="{{ static_url }}logo.png" alt="Clippy Videos">
-        <a href="/" class="menu-item"><img src="{{ static_url }}home.png"> Início</a>
-        <a href="/buscar" class="menu-item"><img src="{{ static_url }}search.png"> Pesquisar</a>
-        <a href="/shorts" class="menu-item"><img src="{{ static_url }}tia.png"> Shorts</a>
-        <a href="/create" class="menu-item"><img src="{{ static_url }}studio.png"> Studio</a>
-        
-        {% if studio_link %}
-        <a href="{{ studio_link }}" class="menu-item">
-            <img src="{{ static_url }}studio.png"> Acessar Meu Studio
-        </a>
-        {% endif %}
-        
-        <a href="/aovivo" class="menu-item"><img src="{{ static_url }}w.png"> Ao Vivo</a>
-        <a href="/conta" class="menu-item"><img src="{{ static_url }}user.png"> Conta</a>
-        <a href="/configs" class="menu-item"><img src="{{ static_url }}icons/settings.png"> Configurações</a>
-        <a href="/sobre" class="menu-item"><img src="{{ static_url }}cd.png"> Sobre</a>
+        <img class="logo" src="{{ static_url }}/logo.png" alt="Veja a Copa do Mundo de 2026!">
+        &ThinSpace;
+        <a href="/" class="menu-item"><img src="{{ static_url }}home.png"> {{ t.menu.inicio }}</a>
+        <a href="/buscar" class="menu-item"><img src="{{ static_url }}search.png"> {{ t.menu.pesquisar }}</a>
+        <a href="/shorts" class="menu-item"><img src="{{ static_url }}tia.png"> {{ t.menu.shorts }}</a>
+        <a href="{{ studio_link }}" {% if studio_link %} href="https://192.168.0.150:7072/create" {% endif %} class="menu-item"><img src="{{ static_url }}studio.png"> {{ t.menu.studio }}</a>
+        <a href="/aovivo" class="menu-item"><img src="{{ static_url }}w.png"> {{ t.menu.ao_vivo }}</a>
+        <hr style="border: 0.5px solid #555; margin: 20px 0;">
+        <a href="/conta" class="menu-item"><img src="{{ static_url }}user.png"> {{ t.menu.conta }}</a>
+        <a href="/historico" class="menu-item"><img src="{{ static_url }}story.png"> {{ t.menu.historico }}</a>
+        <a href="/buscar_contas" class="menu-item"><img src="{{ static_url }}users.png"> {{ t.menu.buscar_contas }}</a>
+        <a href="/chats" class="menu-item"><img src="{{ static_url }}users.png"> {{ t.menu.conversas }}</a>
+        <a href="#" class="menu-item"><img src="{{ static_url }}bot.png"> {{ t.menu.ia }}</a>
+        <hr style="border: 0.5px solid #555; margin: 20px 0;">
+        <a href="/configs" class="menu-item"><img src="{{ static_url }}icons/settings.png"> {{ t.menu.configuracoes }}</a>
+        <a href="/sobre" class="menu-item"><img src="{{ static_url }}cd.png"> {{ t.menu.sobre }}</a>
+        <a href="/ajuda" class="menu-item"><img src="{{ static_url }}help.png"> {{ t.menu.ajuda }}</a>
+
+        <div style="margin-top: 20px; display: flex; gap: 8px; padding: 0 14px;">
+            {% for codigo, nome in idiomas_disponiveis.items() %}
+            <a href="{{ url_for('mudar_idioma', lang_code=codigo) }}"
+               title="{{ nome }}"
+               style="font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; text-decoration: none;
+                      color: {{ '#fff' if lang_atual == codigo else '#8888c0' }};
+                      background: {{ 'rgba(106,106,255,0.35)' if lang_atual == codigo else 'transparent' }};
+                      border: 1px solid #4a4a7a;">{{ codigo.upper() }}</a>
+            {% endfor %}
+        </div>
     </nav>
 
     <div class="main">
-        <div class="grid" id="video-grid">
-            {% for video in videos %}
-            <a href="{{ url_for('player', item_id=video.id) }}" style="text-decoration:none;">
-                <article class="video-card">
-                    {% if video.thumb %}
-                        <img src="{{ static_url }}uploads/{{ video.thumb }}" alt="{{ video.title }}">
-                    {% else %}
-                        <div style="width:100%; aspect-ratio:16/9; background: linear-gradient(45deg, #444, #222);"></div>
-                    {% endif %}
-                    <div class="video-info">
-                        <strong>{{ video.title }}</strong>
-                        <small>{{ video.views }} visualizações</small>
-                        <p>postado {{ video.idade }}</p>
-                        <p>@{{ video.channel }}</p>
-                    </div>
-                </article>
-            </a>
-            {% endfor %}
+
+        <!-- ABAS -->
+        <div class="feed-tabs">
+            <button class="tab-btn ativa" onclick="trocarAba('em-alta', this)">📈 {{ t.feed.em_alta }}</button>
+            <button class="tab-btn" onclick="trocarAba('recentes', this)">🕐 {{ t.feed.recentes }}</button>
+            <button class="tab-btn" onclick="trocarAba('de-seus-canais', this)">📺 {{ t.feed.de_seus_canais }}</button>
         </div>
 
-        <div id="loading" class="loading" style="display: none;">
-            Carregando mais vídeos...
+        <!-- FEED: EM ALTA -->
+        <div id="feed-em-alta" class="feed-section ativa">
+            <div class="grid" id="grid-em-alta">
+                {% for video in em_alta %}
+                <a href="{{ url_for('player', item_id=video.id) }}" style="text-decoration:none;">
+                    <article class="video-card">
+                        {% if video.thumb %}
+                            <img src="{{ static_url }}uploads/{{ video.thumb }}" alt="{{ video.title }}">
+                        {% else %}
+                            <div class="video-thumb-placeholder"></div>
+                        {% endif %}
+                        <div class="video-info">
+                            <strong>{{ video.title }}</strong>
+                            <small>{{ video.views }} {{ t.feed.visualizacoes }}</small>
+                            <p>{{ t.feed.postado }} {{ video.idade }}</p>
+                            <p>@{{ video.channel }}</p>
+                            <span class="badge-alta">{{ t.feed.badge_em_alta }}</span>
+                        </div>
+                    </article>
+                </a>
+                {% else %}
+                    <p style="color:#6060aa;grid-column:1/-1;text-align:center;padding:40px 0">{{ t.feed.nenhum_video }}</p>
+                {% endfor %}
+            </div>
+            <div id="loading-em-alta" class="loading" style="display:none;">{{ t.feed.carregando }}</div>
         </div>
-    </div>
+
+        <!-- FEED: RECENTES -->
+        <div id="feed-recentes" class="feed-section">
+            <div class="grid" id="grid-recentes">
+                {% for video in recentes %}
+                <a href="{{ url_for('player', item_id=video.id) }}" style="text-decoration:none;">
+                    <article class="video-card">
+                        {% if video.thumb %}
+                            <img src="{{ static_url }}uploads/{{ video.thumb }}" alt="{{ video.title }}">
+                        {% else %}
+                            <div class="video-thumb-placeholder"></div>
+                        {% endif %}
+                        <div class="video-info">
+                            <strong>{{ video.title }}</strong>
+                            <small>{{ video.views }} {{ t.feed.visualizacoes }}</small>
+                            <p>{{ t.feed.postado }} {{ video.idade }}</p>
+                            <p>@{{ video.channel }}</p>
+                        </div>
+                    </article>
+                </a>
+                {% else %}
+                    <p style="color:#6060aa;grid-column:1/-1;text-align:center;padding:40px 0">{{ t.feed.nenhum_video_recente }}</p>
+                {% endfor %}
+            </div>
+            <div id="loading-recentes" class="loading" style="display:none;">{{ t.feed.carregando }}</div>
+        </div>
+
+        <!-- FEED: DE SEUS CANAIS -->
+        <div id="feed-de-seus-canais" class="feed-section">
+            {% if not username %}
+                <div class="feed-vazio">
+                    <div class="icone">📺</div>
+                    <p>{{ t.feed.login_necessario }}</p>
+                    <a href="/login">{{ t.feed.entrar_conta }}</a>
+                </div>
+            {% elif not de_seus_canais %}
+                <div class="feed-vazio">
+                    <div class="icone">🔔</div>
+                    <p>{{ t.feed.sem_inscricoes }}</p>
+                    <a href="/buscar">{{ t.feed.descobrir_canais }}</a>
+                </div>
+            {% else %}
+                <div class="grid">
+                    {% for video in de_seus_canais %}
+                    <a href="{{ url_for('player', item_id=video.id) }}" style="text-decoration:none;">
+                        <article class="video-card">
+                            {% if video.thumb %}
+                                <img src="{{ static_url }}uploads/{{ video.thumb }}" alt="{{ video.title }}">
+                            {% else %}
+                                <div class="video-thumb-placeholder"></div>
+                            {% endif %}
+                            <div class="video-info">
+                                <strong>{{ video.title }}</strong>
+                                <small>{{ video.views }} {{ t.feed.visualizacoes }}</small>
+                                <p>{{ t.feed.postado }} {{ video.idade }}</p>
+                                <p>@{{ video.channel }}</p>
+                            </div>
+                        </article>
+                    </a>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+    </div><!-- /.main -->
 
     <script>
-        // (Script mantido igual)
-        let page = 1;
-        let loading = false;
-        const videosPerPage = 12;
+    // Traduções disponíveis para o JS (usadas no scroll infinito, que
+    // monta cards dinamicamente sem passar pelo Jinja)
+    const I18N = {{ t.feed | tojson }};
 
-        async function loadMoreVideos() {
-            if (loading) return;
-            loading = true;
-            document.getElementById('loading').style.display = 'block';
+    // ── ABAS ──────────────────────────────────────────
+    let abaAtiva = 'em-alta';
 
-            try {
-                const response = await fetch(`/api/videos?page=${page}&per_page=${videosPerPage}`);
-                const data = await response.json();
+    function trocarAba(id, btn) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('ativa'));
+        document.querySelectorAll('.feed-section').forEach(s => s.classList.remove('ativa'));
+        btn.classList.add('ativa');
+        document.getElementById('feed-' + id).classList.add('ativa');
+        abaAtiva = id;
+    }
 
-                if (data.videos && data.videos.length > 0) {
-                    const grid = document.getElementById('video-grid');
-                    
-                    data.videos.forEach(video => {
-                        const cardHTML = `
-                            <a href="/player/${video.id}" style="text-decoration:none;">
-                                <article class="video-card">
-                                    ${video.thumb 
-                                        ? `<img src="${video.static_url}uploads/${video.thumb}" alt="${video.title}">` 
-                                        : `<div style="width:100%; aspect-ratio:16/9; background: linear-gradient(45deg, #444, #222);"></div>`}
-                                    <div class="video-info">
-                                        <strong>${video.title}</strong>
-                                        <small>${video.views} visualizações</small>
-                                        <p>@${video.channel}</p>
-                                    </div>
-                                </article>
-                            </a>`;
-                        grid.insertAdjacentHTML('beforeend', cardHTML);
-                    });
+    // ── SCROLL INFINITO (Em Alta e Recentes) ──────────
+    const feedState = {
+        'em-alta':  { page: 2, loading: false, done: false },
+        'recentes': { page: 2, loading: false, done: false }
+    };
 
-                    page++;
-                } else {
-                    document.getElementById('loading').innerHTML = 'Fim dos vídeos';
-                }
-            } catch (error) {
-                console.error('Erro ao carregar vídeos:', error);
-            } finally {
-                loading = false;
-                document.getElementById('loading').style.display = 'none';
+    function cardHTML(v, staticUrl) {
+        const thumb = v.thumb
+            ? `<img src="${staticUrl}uploads/${v.thumb}" alt="${v.title}">`
+            : `<div class="video-thumb-placeholder"></div>`;
+        return `
+            <a href="/player/${v.id}" style="text-decoration:none;">
+                <article class="video-card">
+                    ${thumb}
+                    <div class="video-info">
+                        <strong>${v.title}</strong>
+                        <small>${v.views} ${I18N.visualizacoes}</small>
+                        <p>@${v.channel}</p>
+                    </div>
+                </article>
+            </a>`;
+    }
+
+    async function carregarMais() {
+        if (!(abaAtiva in feedState)) return;
+        const state   = feedState[abaAtiva];
+        const loading = document.getElementById('loading-' + abaAtiva);
+        if (state.loading || state.done) return;
+
+        state.loading = true;
+        if (loading) loading.style.display = 'block';
+
+        try {
+            const res  = await fetch(`/api/videos?page=${state.page}&per_page=16&feed=${abaAtiva}`);
+            const data = await res.json();
+            if (data.videos && data.videos.length > 0) {
+                const grid = document.getElementById('grid-' + abaAtiva);
+                data.videos.forEach(v => grid.insertAdjacentHTML('beforeend', cardHTML(v, data.static_url)));
+                state.page++;
+            } else {
+                state.done = true;
+                if (loading) loading.textContent = I18N.fim;
             }
+        } catch (err) {
+            console.error('Erro ao carregar vídeos:', err);
+        } finally {
+            state.loading = false;
+            if (loading && !feedState[abaAtiva].done) loading.style.display = 'none';
         }
+    }
 
-        window.addEventListener('scroll', () => {
-            if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 300) {
-                loadMoreVideos();
-            }
-        });
+    window.addEventListener('scroll', () => {
+        if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 400) {
+            carregarMais();
+        }
+    });
     </script>
+
 </body>
 </html>

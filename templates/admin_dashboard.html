@@ -40,6 +40,7 @@
             <table>
                 <tr>
                     <th>ID</th>
+                    <th>thumb</th>
                     <th>Título</th>
                     <th>Canal</th>
                     <th>Status</th>
@@ -49,6 +50,7 @@
                 {% for v in videos %}
                 <tr>
                     <td>{{ v.id }}</td>
+                    <td><img src="{{ static_url }}uploads/{{ v.thumb }}"></td>
                     <td>{{ v.title }}</td>
                     <td>{{ v.channel or 'Sem canal' }}</td>
                     <td>{{ v.status }}</td>

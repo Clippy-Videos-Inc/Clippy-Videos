@@ -65,6 +65,7 @@
     <div class="container">
         <h2>Editar Classificação Etária</h2>
         <p><strong>Vídeo:</strong> {{ video.title }}</p>
+        <iframe src="https://192.168.0.150:7070/watch/{{ video.id }}"></iframe>
         <p><strong>Classificação atual:</strong> {{ video.classificacao or 'L (Livre)' }}</p>
 
         {% with messages = get_flashed_messages(with_categories=true) %}

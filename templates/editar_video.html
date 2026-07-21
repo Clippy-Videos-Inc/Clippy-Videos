@@ -127,6 +127,14 @@
         <label>Capítulos (um por linha: tempo - título)</label>
         <textarea name="chapters" rows="6" placeholder="0:00 - Introdução&#10;2:30 - Parte 1&#10;5:45 - Dicas finais">{{ video.chapters or '' }}</textarea>
 
+        <!-- CARDS -->
+        <label>Cards (vídeos relacionados que aparecem durante a reprodução)</label>
+        <textarea name="cards" rows="4" placeholder="id_do_video | tempo_em_segundos&#10;abc12345 | 30&#10;def67890 | 90">{{ video.cards_texto or '' }}</textarea>
+        <small style="display:block; margin-top:6px; color:#9d9dff;">
+            Uma linha por card: ID do vídeo, uma barra <code>|</code>, e o segundo em que ele deve aparecer no player.
+            Título e miniatura são puxados automaticamente do vídeo referenciado. Máximo de 5 cards.
+        </small>
+
         <!-- LEGENDAS -->
         <label>Legendas (.srt) — Substituir arquivo atual</label>
         <input type="file" name="subtitle" accept=".srt">
@@ -140,7 +148,7 @@
         <button type="submit">💾 SALVAR ALTERAÇÕES</button>
     </form>
 
-    <a href="/" class="back">Voltar</a>
+    <a href="/studio/{{ username }}" class="back">← Voltar ao Studio</a>
 </div>
 
 </body>

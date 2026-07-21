@@ -1,0 +1,49 @@
+<DOCTYPE html>
+  <html lang="pt-BR">
+    <head>  
+    </head>
+    <style>
+        /* Reset básico para remover margens padrão do navegador */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Roboto', sans-serif; /* Fonte importada no HTML */
+    background-color: #f4f4f9; /* Fundo cinza bem claro para a página */
+    color: #333; /* Cor do texto principal */
+    line-height: 1.6;
+}
+        .center { text-align: center;}
+        .paper { 
+          max-width: 800px;
+    margin: 40px auto; /* Centraliza na tela e dá espaço em cima/baixo */
+    background-color: #fff;
+    padding: 40px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1); /* Sombra suave */
+        }
+    </style>
+    <body>
+      <div class="paper">
+        <h1 class="center">Clippy Vídeos - código de verificação</h1>
+        <h3 class="center">olá {{ username }}, recebemos uma solicitação de código.</h2>
+        &ThinSpace;
+        <p class="center">o que é clippy vídeos? <strong>clippy vídeos é uma rede social</strong></p>
+        &ThinSpace;
+        <h3 class="center">seu código:</h3>
+        <h1 class="center">{{ code }}</h1>
+        &ThinSpace;
+        &ThinSpace;
+        &ThinSpace;
+        <p class="center">se precisar de ajuda acesse a <a href="https://192.168.0.150:7070/ajuda">central de ajuda</a> ou responda esse email</p>
+        <h4 class="center">dica: depois de criar uma conta configure sua idade em <a href="https://192.168.0.150:7070/configs">configurações</a></h4>
+        &ThinSpace;
+        <p class="center">se Você não mandou uma solicitação de código ignore esse email!</p>
+        &ThinSpace;
+        <p class="center">&copy;2026 - Clippy Vídeos&trade;, todos os direitos reservados.</p>
+      </div>
+    </body>
+  </html>

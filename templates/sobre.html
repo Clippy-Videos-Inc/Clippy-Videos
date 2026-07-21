@@ -29,17 +29,13 @@
     </style>
 </head>
 <body>
-    <h1>Sobre o Clippy Videos</h1>
+    <h1>{{ t.sobre.titulo }}</h1>
     <p class="sobre">
-        O Clippy Videos é um projeto para você assistir vídeos sem a plataforma saber até a cor da sua cueca!<br>
-        Desenvolvido em 09/09/2025, o projeto ainda era beta. Só em 2026 que foi aberto 100% ao público.<br>
-        O nome "Clippy" no início era uma brincadeira (meio chato, mas não rouba dados), só coleta o mínimo necessário.<br>
-        Recomendamos usar o Brave para mais privacidade!
+        {{ t.sobre.descricao }}
     </p>
-    <p>Versão: <strong>1.21.0</strong></p>
-    <img src="{{ static_url }}icons/walcome.svg" alt="Ícone de boas-vindas">
+    <p>{{ t.sobre.versao }}: <strong>2026.07.15.2132.05</strong></p>
     <br><br>
-    <a class="link" href="{{ url_for('index') }}">Voltar</a>
+    <a class="link" href="{{ url_for('index') }}">{{ t.configs.voltar }}</a>
     <p>&copy; 2026 - Clippy Videos</p>
 </body>
 </html>

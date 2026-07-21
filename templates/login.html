@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clippy Vídeos - Login & Cadastro</title>
+    <title>Clippy Videos - Login & {{ t.login.cadastro }}</title>
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
     <style>
         body { font-family: Arial, sans-serif; background: #f2f2f2; background-color: {{ user_settings.cor_fundo|default('#f2f2f2') }} !important; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
@@ -19,19 +19,23 @@
 <body>
     <div class="container">
         <form action="/login" method="POST">
-            <h2>Login</h2>
+            <h2>{{ t.login.entrar }}</h2>
             <input type="text" name="username" placeholder="Usuário" required autofocus>
             <input type="password" name="password" placeholder="Senha" required>
-            <button type="submit">Entrar</button>
+            <label>
+    <input type="checkbox" name="lembrar" value="1">
+        {{ t.login.lembrar }}
+    </label>
+            <button type="submit">{{ t.login.entrar }}</button>
         </form>
 
         <form action="/cadastro" method="POST">
-            <h2>Cadastro</h2>
+            <h2>{{ t.login.cadastro }}</h2>
             <input type="text" name="nome" placeholder="Nome completo" required>
             <input type="email" name="email" placeholder="Email" required>
             <input type="text" name="username" placeholder="Usuário" required>
             <input type="password" name="password" placeholder="Senha" required>
-            <button type="submit">Cadastrar</button>
+            <button type="submit">{{ t.login.cadastrar }}</button>
         </form>
     </div>
 </body>

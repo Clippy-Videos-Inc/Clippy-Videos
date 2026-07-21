@@ -201,10 +201,11 @@
     <!-- Sidebar -->
     <nav>
         <ul>
-            <li><a href="https://192.168.0.150:7070"><img src="{{ static_url }}home.png" width="28"><span>Início</span></a></li>
+            <li><a href="https://192.168.0.150:443"><img src="{{ static_url }}home.png" width="28"><span>Início</span></a></li>
             <li><a href="#uploadModal" onclick="openModal()"><img src="{{ static_url }}channels.png" width="28"><span>Enviar Vídeo</span></a></li>
             <li><a href="{{ url_for('gerenciar_collabs', username=username) }}"><img src="{{ static_url }}users.png" width="28"><span>Colabs</span></a></li>
             <li><a href="/live"><img src="{{ static_url }}w.png" width="28"><span>Criar Live</span></a></li>
+            <li><a href="/studio/{{ username }}/posts"><img src="{{ static_url }}posts.png" width="28"><span>Posts</span></a></li>
         </ul>
     </nav>
 
@@ -213,9 +214,9 @@
         <!-- BANNER DO CANAL -->
         <div class="channel-banner" id="bannerContainer">
             {% if banner_path %}
-                <img src="{{ static_url }}channels/@{{ username }}/{{ banner_path }}" alt="Banner">
+                <img src="{{ static_url }}uploads/banners/{{ banner_path }}" alt="Banner" id="bannerImg">
             {% else %}
-                <div style="height:100%; display:flex; align-items:center; justify-content:center; background:linear-gradient(45deg,#1f1f38,#2c2c4c); color:#666; font-size:18px;">
+                <div style="height:100%; display:flex; align-items:center; justify-content:center; background:linear-gradient(45deg,#1f1f38,#2c2c4c); color:#666; font-size:18px;" id="bannerVazio">
                     Nenhum banner definido
                 </div>
             {% endif %}
@@ -223,6 +224,13 @@
                 📸 Trocar Banner
                 <input type="file" id="bannerInput" accept="image/*" style="display:none;" onchange="uploadBanner()">
             </label>
+            {% if banner_path %}
+            <button type="button" onclick="removerBanner()"
+                    style="position:absolute; bottom:15px; left:15px; background:rgba(0,0,0,0.7); color:#ff8a8a;
+                           padding:8px 16px; border-radius:30px; font-size:14px; cursor:pointer; border:2px solid #ff5e5e;">
+                🗑️ Remover
+            </button>
+            {% endif %}
         </div>
 
         <!-- Estatísticas -->
@@ -239,18 +247,23 @@
         <div class="video-list">
             {% for video in channel_videos %}
             <div class="video-card">
-                <iframe src="{{ static_url }}watch/{{ video.id }}" allowfullscreen></iframe>
+                <iframe src="https://192.168.0.150:7070/embed/{{ video.id }}" allowfullscreen></iframe>
                 <div class="info">
                     <h3>{{ video.title }}</h3>
                     <p>{{ video.views }} views • {{ video.status or 'Publicado' }}</p>
                     
-                    <a href="/editar-video/{{ video.id }}" class="btn btn-edit" style="display:block; text-align:center; text-decoration:none;">
-                        ✏️ Editar (Título, Descrição, Capítulos, Legendas)
+                    <a href="{{ url_for('editar_video', username=username, video_id=video.id) }}" class="btn btn-edit" style="display:block; text-align:center; text-decoration:none;">
+                        ✏️ Editar (Título, Descrição, Capítulos, Legendas, Cards)
                     </a>
-                    
-                    {% if video.collaborators %}
-                    <small style="display:block; margin-top:8px; color:#c0c0ff;">Colabs: {{ video.collaborators|length }}</small>
-                    {% endif %}
+
+                    <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+                        {% if video.collaborators %}
+                        <small style="color:#c0c0ff;">🤝 {{ video.collaborators|length }} colab{{ 's' if video.collaborators|length != 1 else '' }}</small>
+                        {% endif %}
+                        {% if video.cards %}
+                        <small style="color:#9d9dff;">🔗 {{ video.cards|length }} card{{ 's' if video.cards|length != 1 else '' }}</small>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             {% else %}
@@ -272,7 +285,7 @@
       <div id="step1" class="step active">
         <h3>Etapa 1 – Arquivo</h3>
         <input type="password" name="password" placeholder="Senha do canal" required>
-        <input type="file" name="video" id="videoInput" accept="video/*" required>
+        <input type="file" name="video" id="videoInput" accept=".mpe, .mpeg, .ogm, .mkv, .mpg, .wmv, .webm, .ogv, .mov, .m4v, .asx, .mp4, .avi" required>
         <button type="button" onclick="nextStep(1)">Próximo →</button>
       </div>
 
@@ -320,7 +333,18 @@ async function uploadBanner() {
     });
     
     if (res.ok) location.reload();
-    else alert('Erro ao enviar banner');
+    else {
+        const erro = await res.json().catch(() => ({}));
+        alert(erro.error || 'Erro ao enviar banner');
+    }
+}
+
+async function removerBanner() {
+    if (!confirm('Remover o banner atual do canal?')) return;
+
+    const res = await fetch('/studio/{{ username }}/remover_banner', { method: 'POST' });
+    if (res.ok) location.reload();
+    else alert('Erro ao remover banner');
 }
 </script>
 </body>

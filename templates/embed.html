@@ -157,7 +157,7 @@
 <body>
   <div class="pv-stage" id="pv">
     <video class="pv-video" id="vid" preload="metadata">
-      <source src="{{ url_for('static', filename='uploads/' + video.filename) }}" type="video/mp4">
+      <source src="{{ static_url }}uploads/{{ video.filename }}" type="video/mp4">
     </video>
 
     <!-- Título/top bar opcional -->
@@ -174,12 +174,12 @@
   <!-- Botões abaixo -->
    <div class="pv-controls">
 <button class="btn" id="btnTogglePlay" title="Play/Pause">
-  <img id="playIcon" src="{{ url_for('static', filename='icons/play.png') }}" alt="Play">
+  <img id="playIcon" src="{{ static_url }}/icons/play.png" alt="Play">
 </button>
 
 <div style="position: relative;">
   <button class="btn" id="btnToggleMute" title="Volume">
-    <img id="volumeIcon" src="{{ url_for('static', filename='icons/unmute.png') }}" alt="Volume">
+    <img id="volumeIcon" src="{{ static_url }}/icons/unmute.png" alt="Volume">
   </button>
 
   <div id="volumeControl" style="
@@ -205,12 +205,12 @@
 </div>
 
   <button class="btn" id="btnFullscreen" title="Tela cheia">
-    <img src="{{ url_for('static', filename='icons/fullscreen.png') }}" alt="Fullscreen">
+    <img src="{{ static_url }}/icons/fullscreen.png" alt="Fullscreen">
   </button>
 
   <div style="position:relative;">
   <button class="btn" id="btnSettings" title="Qualidade">
-    <img src="{{ url_for('static', filename='icons/settings.png') }}" alt="Configurações">
+    <img src="{{ static_url }}/icons/settings.png" alt="Configurações">
   </button>
 
   <div id="qualityMenu" style="
@@ -224,14 +224,14 @@
     box-shadow:0 2px 6px rgba(0,0,0,0.3);
     z-index:100;
   ">
-    <button class="btn quality-option" data-src="{{ url_for('static', filename='uploads/' + video.filename) }}">Padrão</button>
+    <button class="btn quality-option" data-src="{{ static_url }}uploads/{{ video.filename }}">Padrão</button>
 
 {% if video.filename_480p %}
-  <button class="btn quality-option" data-src="{{ url_for('static', filename='uploads/' + video.filename_480p) }}">480p</button>
+  <button class="btn quality-option" data-src="{{ static_url }}uploads/{{ video.filename_480p }}">480p</button>
 {% endif %}
 
 {% if video.filename_144p %}
-  <button class="btn quality-option" data-src="{{ url_for('static', filename='uploads/' + video.filename_144p) }}">144p</button>
+  <button class="btn quality-option" data-src="{{ static_url }}uploads/{{ video.filename_144p }}">144p</button>
 {% endif %}
 
 
@@ -352,10 +352,10 @@ case 'k':
   e.preventDefault();
   if (vid.paused) {
     vid.play();
-    showCenterIcon("{{ url_for('static', filename='icons/play.png') }}");
+    showCenterIcon("{{ static_url }}/icons/play.png");
   } else {
     vid.pause();
-    showCenterIcon("{{ url_for('static', filename='icons/pause.png') }}");
+    showCenterIcon("{{ static_url }}/icons/pause.png");
   }
   break;
     case 'm':
@@ -422,13 +422,13 @@ document.addEventListener('keydown', (e) => {
   switch (e.key.toLowerCase()) {
     case 'arrowup':
   vid.volume = Math.min(vid.volume + 0.1, 1);
-  showCenterIcon("{{ url_for('static', filename='icons/unmute.png') }}");
+  showCenterIcon("{{ static_url }}/icons/unmute.png");
   showVolumeDisplay(vid.volume);
   break;
 
 case 'arrowdown':
   vid.volume = Math.max(vid.volume - 0.1, 0);
-  showCenterIcon("{{ url_for('static', filename='icons/unsound.png') }}");
+  showCenterIcon("{{ static_url }}/icons/unsound.png");
   showVolumeDisplay(vid.volume);
   break;
     // os outros já estão definidos
@@ -448,28 +448,28 @@ const playIcon = document.getElementById('playIcon');
 btnTogglePlay.onclick = () => {
   if (vid.paused) {
     vid.play();
-    playIcon.src = "{{ url_for('static', filename='icons/pause.png') }}";
+    playIcon.src = "{{ static_url }}/icons/pause.png";
   } else {
     vid.pause();
-    playIcon.src = "{{ url_for('static', filename='icons/play.png') }}";
+    playIcon.src = "{{ static_url }}/icons/play.png";
   }
 };
 
 // Atualiza ícone automaticamente ao mudar estado
 vid.addEventListener('play', () => {
-  playIcon.src = "{{ url_for('static', filename='icons/pause.png') }}";
+  playIcon.src = "{{ static_url }}/icons/pause.png";
 });
 
 vid.addEventListener('pause', () => {
-  playIcon.src = "{{ url_for('static', filename='icons/play.png') }}";
+  playIcon.src = "{{ static_url }}/icons/play.png";
 });
 const volumeIcon = document.getElementById('volumeIcon');
 
 // Atualiza ícone se o mute mudar por outro meio
 vid.addEventListener('volumechange', () => {
   volumeIcon.src = vid.muted
-    ? "{{ url_for('static', filename='icons/mute.png') }}"
-    : "{{ url_for('static', filename='icons/unmute.png') }}";
+    ? "{{ static_url }}/icons/mute.png"
+    : "{{ static_url }}/icons/unmute.png";
 });
 const volumeDisplay = document.getElementById('volumeDisplay');
 
@@ -499,7 +499,7 @@ setInterval(() => {
   const delta = now - lastUpdate;
 
   if (delta > 5000 && !vid.paused && !lowGifShown) { // 5 segundos sem atualização
-    showCenterIcon("{{ url_for('static', filename='icons/low.gif') }}");
+    showCenterIcon("{{ static_url }}/icons/low.gif");
     lowGifShown = true;
   }
 }, 15000);
@@ -532,8 +532,8 @@ volumeSlider.addEventListener('input', () => {
 });
 function updateVolumeIcon() {
   volumeIcon.src = vid.muted || vid.volume === 0
-    ? "{{ url_for('static', filename='icons/mute.png') }}"
-    : "{{ url_for('static', filename='icons/unmute.png') }}";
+    ? "{{ static_url }}/icons/mute.png"
+    : "{{ static_url }}/icons/unmute.png";
 }
   </script>
 </body>
