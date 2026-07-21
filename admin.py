@@ -1,9 +1,16 @@
+STATIC_SERVER_URL = "https://192.168.0.150:7071/"
+
 import os
 from flask import Blueprint, render_template, request, redirect, url_for, session, abort, flash
 import sqlite3
 from datetime import datetime
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
+
+@admin_bp.context_processor
+def inject_static_url():
+    # Isso permite usar {{ static_url }} em qualquer HTML
+    return dict(static_url=STATIC_SERVER_URL)
 
 def get_db():
     # Reutilize a mesma função do app principal
@@ -14,7 +21,7 @@ def get_db():
 @admin_bp.before_request
 def check_admin():
     """Verifica se o usuário logado é admin"""
-    if session.get('username') != 'p1xelado':  # Ajuste para o seu admin real
+    if session.get('username') != 'pixelado':  # Ajuste para o seu admin real
         abort(403)
 
 @admin_bp.route('/')

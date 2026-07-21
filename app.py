@@ -9,10 +9,18 @@ import secrets
 import requests
 import subprocess
 import sqlite3
-from flask_socketio import SocketIO
+from urllib.parse import urlparse
+from algoritmo import (
+    feed_em_alta,
+    feed_recentes,
+    feed_de_seus_canais,
+    carregar_likes,
+    carregar_canais_inscritos,
+)
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, send_file, jsonify, abort, flash
 from werkzeug.utils import secure_filename
-from datetime import datetime, UTC, timezone
+from werkzeug.middleware.proxy_fix import ProxyFix
+from datetime import datetime, UTC, timezone, timedelta
 from admin import admin_bp
 from flask import request
 
@@ -40,11 +48,30 @@ COMMENTS_FOLDER = 'coments'  # Pasta de comentários (igual nos dois sistemas)
 
 # App
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = int(5 * 1024 * 1024 * 1024)
 app.config['UPLOAD_FOLDER_CHAT'] = os.path.join('static', 'chat_uploads')
 app.secret_key = 'WsTDo1zxc0oxx2o9Xo*188m'
+
+# Sistema de "Lembrar de mim": quando marcado, a sessão vira permanente e
+# dura o tempo abaixo em vez de expirar ao fechar o navegador.
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+
+# ---------- Segurança: Nginx + Waitress ----------
+# A partir de agora o Flask não fala mais direto com a internet: o Nginx
+# recebe as requisições (HTTPS, na porta 443) e repassa pro Waitress em
+# 127.0.0.1. Por causa disso, precisamos de duas coisas:
+#
+# 1) ProxyFix: sem isso, o Flask acha que toda requisição vem do Nginx
+#    (127.0.0.1) e usa "http" em vez de "https" no que ele gera (ex:
+#    url_for(..., _external=True), redirects, cookies). O ProxyFix lê os
+#    headers X-Forwarded-* que o Nginx envia e corrige isso.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+# 2) Cookies mais seguros agora que o site roda em HTTPS de verdade:
+app.config['SESSION_COOKIE_SECURE'] = True     # cookie só trafega por HTTPS
+app.config['SESSION_COOKIE_HTTPONLY'] = True   # JS não consegue ler o cookie (contra XSS)
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # dificulta CSRF básico
 
 FFMPEG_PATH = r'D:\ffmpeg\bin\ffmpeg.exe'
 
@@ -93,7 +120,8 @@ def init_db():
         display_name TEXT,
         bio TEXT,
         password TEXT,
-        foto_path TEXT
+        foto_path TEXT,
+        banner_path TEXT
     )
     """)
     
@@ -115,7 +143,8 @@ def init_db():
         subtitle_file TEXT DEFAULT '',
         created_at TEXT,
         status TEXT DEFAULT 'pendente',
-        classificacao TEXT DEFAULT 'L'
+        classificacao TEXT DEFAULT 'L',
+        cards TEXT DEFAULT '[]'
     )
     """)
     
@@ -217,6 +246,15 @@ def init_db():
     )
     """)
     
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS video_reactions (
+        video_id TEXT,
+        username TEXT,
+        reaction INTEGER,
+        PRIMARY KEY(video_id, username)
+    )
+    """)
+
     # Commit uma única vez no final
     conn.commit()
     conn.close()
@@ -328,23 +366,45 @@ def corrigir_videos_antigos():
     conn = get_db()
     c = conn.cursor()
 
-    agora = datetime.now(UTC).isoformat()
+    agora = datetime.now(timezone.utc).isoformat()
 
+    # Atualiza datas vazias ou inválidas
     c.execute("""
         UPDATE videos 
         SET created_at = ?
-        WHERE created_at IS NULL OR created_at = ''
+        WHERE created_at IS NULL 
+           OR created_at = '' 
+           OR created_at NOT LIKE '%+%'  -- sem timezone
     """, (agora,))
 
     conn.commit()
     conn.close()
+    print("✅ Datas de vídeos corrigidas (timezone padronizado)")
 
 def gerar_token():
     return secrets.token_urlsafe(15)  # ~20-22 chars
 
+def garantir_colunas_novas():
+    """Adiciona colunas novas em bancos que já existiam antes delas serem
+    criadas (banco compartilhado com o studio.py). Seguro rodar sempre —
+    se a coluna já existe, só ignora o erro."""
+    conn = get_db()
+    c = conn.cursor()
+    for tabela, coluna, tipo in [
+        ("channels", "banner_path", "TEXT"),
+        ("videos", "cards", "TEXT DEFAULT '[]'"),
+    ]:
+        try:
+            c.execute(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {tipo}")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
+    conn.close()
+
 # Initialize DB and maybe migrate
 init_db()
 migrate_json_to_db()
+garantir_colunas_novas()
 corrigir_videos_antigos()
 
 # ---------- Utility functions (DB-backed) ----------
@@ -404,6 +464,10 @@ def get_video(video_id):
         return None
     v = dict(row)
     v['subtitles'] = json.loads(v['subtitles']) if v['subtitles'] else []
+    try:
+        v['cards'] = json.loads(v['cards']) if v.get('cards') else []
+    except (json.JSONDecodeError, TypeError):
+        v['cards'] = []
     return v
 
 def increment_video_views(video_id):
@@ -533,7 +597,8 @@ def get_user_config_path(username):
         default_configs = {
             'cor_fundo': '#f0f2f5',
             'idade': '18',
-            'tema': 'claro'
+            'tema': 'claro',
+            'idioma': None  # None = detectar automaticamente pelo navegador
         }
         with open(config_path, 'w') as f:
             json.dump(default_configs, f)
@@ -572,6 +637,123 @@ def pode_assistir_video(classificacao_video, max_permitido):
     max_num = ordem.get(max_permitido or '18', 18)
     
     return video_num <= max_num
+
+# ---------- Sistema de Idiomas (i18n) ----------
+# Como funciona:
+#   - Os textos ficam em lang/pt-br.json e lang/en.json (chave -> tradução)
+#   - Nos templates, usa-se {{ t.secao.chave }}, ex: {{ t.menu.inicio }}
+#   - Se uma chave não existir no idioma escolhido, cai automaticamente
+#     para o português (pt-br é sempre a base/fallback)
+#   - Prioridade de detecção: 1) idioma trocado manualmente na sessão
+#     2) idioma salvo nas configurações do usuário 3) idioma do navegador
+#     (header Accept-Language) 4) português como padrão
+
+import functools
+
+LANG_DIR = os.path.join(os.path.dirname(__file__), 'lang')
+IDIOMA_PADRAO = 'pt-br'
+IDIOMAS_DISPONIVEIS = {
+    'pt-br': 'Português (Brasil)',
+    'en': 'English',
+}
+
+
+def _mesclar_traducoes(base, override):
+    """Mescla 'override' sobre 'base' recursivamente. Qualquer chave que
+    não exista em 'override' herda o valor de 'base' (fallback automático
+    para português quando uma tradução ainda não foi feita)."""
+    resultado = dict(base)
+    for chave, valor in override.items():
+        if isinstance(valor, dict) and isinstance(resultado.get(chave), dict):
+            resultado[chave] = _mesclar_traducoes(resultado[chave], valor)
+        else:
+            resultado[chave] = valor
+    return resultado
+
+
+@functools.lru_cache(maxsize=None)
+def _carregar_arquivo_lang(lang_code):
+    caminho = os.path.join(LANG_DIR, f'{lang_code}.json')
+    if not os.path.exists(caminho):
+        return {}
+    with open(caminho, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+
+def carregar_traducoes(lang_code):
+    base = _carregar_arquivo_lang(IDIOMA_PADRAO)
+    if lang_code == IDIOMA_PADRAO:
+        return base
+    especifico = _carregar_arquivo_lang(lang_code)
+    return _mesclar_traducoes(base, especifico)
+
+
+def idioma_do_navegador():
+    """Detecta o idioma preferido do usuário a partir do cabeçalho
+    Accept-Language enviado automaticamente pelo navegador."""
+    melhor = request.accept_languages.best_match(list(IDIOMAS_DISPONIVEIS.keys()))
+    if melhor:
+        return melhor
+    if request.accept_languages:
+        primario = request.accept_languages[0][0].split('-')[0].lower()
+        if primario == 'pt':
+            return 'pt-br'
+        if primario in IDIOMAS_DISPONIVEIS:
+            return primario
+    return IDIOMA_PADRAO
+
+
+def idioma_atual():
+    # 1. Idioma trocado manualmente nesta sessão (tem prioridade máxima)
+    if 'idioma' in session:
+        return session['idioma']
+
+    # 2. Idioma salvo nas configurações do usuário (se estiver logado)
+    username = session.get('username')
+    if username:
+        path = get_user_config_path(username)
+        if os.path.exists(path):
+            with open(path, 'r', encoding='utf-8') as f:
+                cfg = json.load(f)
+            if cfg.get('idioma'):
+                return cfg['idioma']
+
+    # 3. Idioma do navegador / 4. Padrão (pt-br)
+    return idioma_do_navegador()
+
+
+@app.context_processor
+def inject_translations():
+    # Isso permite usar {{ t.secao.chave }} em qualquer template
+    lang = idioma_atual()
+    return dict(
+        t=carregar_traducoes(lang),
+        lang_atual=lang,
+        idiomas_disponiveis=IDIOMAS_DISPONIVEIS,
+    )
+
+
+@app.route('/idioma/<lang_code>', methods=['GET', 'POST'])
+def mudar_idioma(lang_code):
+    """Troca o idioma manualmente. Salva na sessão imediatamente e,
+    se o usuário estiver logado, também salva permanentemente nas
+    configurações dele."""
+    if lang_code not in IDIOMAS_DISPONIVEIS:
+        abort(404)
+
+    session['idioma'] = lang_code
+
+    if 'username' in session:
+        path = get_user_config_path(session['username'])
+        with open(path, 'r', encoding='utf-8') as f:
+            cfg = json.load(f)
+        cfg['idioma'] = lang_code
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(cfg, f)
+
+    destino = request.referrer or url_for('index')
+    return redirect(destino)
+
 # ---------- Routes (kept structure from your original app) ----------
 
 @app.route('/', methods=['GET', 'POST'])
@@ -579,22 +761,23 @@ def index():
     ua = request.user_agent.string.lower()
     if 'mobile' in ua or 'android' in ua or 'iphone' in ua:
         return redirect('/lang=mobile')
-
+ 
+    # ── Upload de vídeo via POST (mantido igual) ──
     if request.method == 'POST':
         video = request.files.get('video')
         thumb = request.files.get('thumb')
         title = request.form.get('title')
         description = request.form.get('description')
-
+ 
         if video:
             filename = secure_filename(video.filename)
             video.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-
+ 
             thumb_filename = ''
             if thumb and thumb.filename != '':
                 thumb_filename = 'thumb_' + secure_filename(thumb.filename)
                 thumb.save(os.path.join(app.config['UPLOAD_FOLDER'], thumb_filename))
-
+ 
             vid = uuid.uuid4().hex[:10]
             video_entry = {
                 'id': vid,
@@ -611,46 +794,52 @@ def index():
                 'created_at': datetime.utcnow().isoformat()
             }
             save_video_entry(video_entry)
-
-    # Carrega todos os vídeos do banco
-    all_videos = load_videos()
-
-    # Define classificação máxima padrão (para não logados ou adultos)
-    max_class = '18'
-
-    username = session.get("username")
+ 
+    # ── Carrega dados do usuário ──
+    username    = session.get("username")
     studio_link = None
-    
+    max_class   = '18'
+ 
     if username:
-        # Carrega configs do usuário logado
         path = get_user_config_path(username)
         if os.path.exists(path):
             with open(path, 'r', encoding='utf-8') as f:
                 configs = json.load(f)
             max_class = configs.get('classificacao_maxima', '18')
-
-        # Carrega link do studio (só para logados)
+ 
         studio_path = os.path.join("users", username, "studio.txt")
         if os.path.exists(studio_path):
             with open(studio_path, "r", encoding="utf-8") as f:
                 relative_path = f.read().strip()
             studio_link = STUDIO_BASE_URL + relative_path.lstrip('/')
-    else:
-        studio_link = None
-
-    # Filtra vídeos permitidos
+ 
+    # ── Carrega vídeos e filtra por classificação ──
+    all_videos = load_videos()
     videos_permitidos = [
         v for v in all_videos
         if pode_assistir_video(v.get('classificacao', 'L'), max_class)
     ]
-
-    # Embaralha os permitidos
-    videos_embaralhados = random.sample(videos_permitidos, len(videos_permitidos)) if len(videos_permitidos) > 1 else videos_permitidos
-
-    return render_template("index.html",
-                           videos=videos_embaralhados,
-                           studio_link=studio_link,
-                           max_class=max_class)  # opcional
+ 
+    # ── Carrega likes e inscrições do banco ──
+    conn   = get_db()
+    likes  = carregar_likes(conn)
+    canais = carregar_canais_inscritos(conn, username)
+    conn.close()
+ 
+    # ── Gera os três feeds ──
+    em_alta        = feed_em_alta(videos_permitidos, likes, limite=16)
+    recentes       = feed_recentes(videos_permitidos, limite=16)
+    de_seus_canais = feed_de_seus_canais(videos_permitidos, canais, limite=30)
+ 
+    return render_template(
+        "index.html",
+        em_alta=em_alta,
+        recentes=recentes,
+        de_seus_canais=de_seus_canais,
+        studio_link=studio_link,
+        username=username,
+        max_class=max_class,
+    )
 
 @app.before_request
 def check_menor_idade():
@@ -881,9 +1070,22 @@ def buscar():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # Pra onde voltar depois de logar (ex: veio do Studio, que é um
+    # servidor/porta separada e não consegue usar url_for pra isso).
+    # Só aceita URLs do próprio servidor (mesmo IP/domínio) -- isso evita
+    # que alguém monte um link tipo /login?next=https://site-malicioso.com
+    # e use seu login pra te mandar pra outro lugar (open redirect).
+    destino = request.values.get('next', '')
+    if destino and urlparse(destino).hostname != request.host.split(':')[0]:
+        destino = ''
+
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        lembrar = request.form.get('lembrar')  # vem do checkbox "Lembrar de mim"
+        destino = request.form.get('next', destino)
+        if destino and urlparse(destino).hostname != request.host.split(':')[0]:
+            destino = ''
         
         conn = get_db()
         c = conn.cursor()
@@ -897,12 +1099,17 @@ def login():
             # 2. Salvamos tudo na sessão
             session['username'] = username
             session['is_pro'] = user_data['is_pro'] # Agora sim, pegando do banco!
+
+            # 3. Se marcou "Lembrar de mim", a sessão fica permanente
+            #    (dura 30 dias, ver PERMANENT_SESSION_LIFETIME). Se não
+            #    marcou, o login some assim que o navegador for fechado.
+            session.permanent = bool(lembrar)
             
-            return redirect(url_for('index'))
+            return redirect(destino or url_for('index'))
             
         return 'Login inválido', 401
         
-    return render_template('login.html')
+    return render_template('login.html', next=destino)
 
 @app.route('/cadastro', methods=['POST'])
 def cadastro():
@@ -964,7 +1171,8 @@ def canal(username):
                            bio=bio,
                            channel_videos=videos,
                            subscribers=subscribers,
-                           ja_inscrito=ja_inscrito)
+                           ja_inscrito=ja_inscrito,
+                           )
 
 @app.route('/inscrever/<username>', methods=['POST'])
 def inscrever(username):
@@ -1043,23 +1251,74 @@ def watch(video_id):
     # Passamos o 'relacionados' para o template
     return render_template("watch.html", video=video, relacionados=relacionados)
 
-@app.route('/like_video', methods=['POST'])
-def like_video():
+@app.route('/react_video', methods=['POST'])
+def react_video():
+
+    if 'username' not in session:
+        return jsonify({"error": "login_required"}), 403
+
     data = request.get_json()
+
     video_id = str(data.get('id'))
-    if not video_id:
-        return 'ID inválido', 400
+    reaction = int(data.get('reaction'))
+
+    username = session['username']
+
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT count FROM likes WHERE video_id = ?", (video_id,))
-    r = c.fetchone()
-    if r:
-        c.execute("UPDATE likes SET count = count + 1 WHERE video_id = ?", (video_id,))
+
+    c.execute("""
+        SELECT reaction
+        FROM video_reactions
+        WHERE video_id = ? AND username = ?
+    """, (video_id, username))
+
+    current = c.fetchone()
+
+    if current:
+
+        # clicou novamente na mesma reação
+        if current["reaction"] == reaction:
+
+            c.execute("""
+                DELETE FROM video_reactions
+                WHERE video_id = ? AND username = ?
+            """, (video_id, username))
+
+        else:
+
+            c.execute("""
+                UPDATE video_reactions
+                SET reaction = ?
+                WHERE video_id = ? AND username = ?
+            """, (reaction, video_id, username))
+
     else:
-        c.execute("INSERT INTO likes (video_id, count) VALUES (?, ?)", (video_id, 1))
+
+        c.execute("""
+            INSERT INTO video_reactions
+            (video_id, username, reaction)
+            VALUES (?, ?, ?)
+        """, (video_id, username, reaction))
+
     conn.commit()
+
+    c.execute("""
+        SELECT
+            SUM(CASE WHEN reaction = 1 THEN 1 ELSE 0 END) as likes,
+            SUM(CASE WHEN reaction = -1 THEN 1 ELSE 0 END) as dislikes
+        FROM video_reactions
+        WHERE video_id = ?
+    """, (video_id,))
+
+    result = c.fetchone()
+
     conn.close()
-    return 'Like registrado', 200
+
+    return jsonify({
+        "likes": result["likes"] or 0,
+        "dislikes": result["dislikes"] or 0
+    })
 
 @app.route("/shorts")
 @app.route("/shorts/<short_id>")
@@ -1441,11 +1700,17 @@ def configs():
         novas_configs = {
             'cor_fundo': request.form.get('cor_fundo'),
             'idade': request.form.get('idade'),
-            'tema': request.form.get('tema')
+            'tema': request.form.get('tema'),
+            'idioma': request.form.get('idioma')
         }
         with open(path, 'w') as f:
             json.dump(novas_configs, f)
-        
+
+        # Troca o idioma da sessão imediatamente também, sem precisar
+        # recarregar duas vezes
+        if novas_configs.get('idioma'):
+            session['idioma'] = novas_configs['idioma']
+
         # Verifica se precisa de supervisão após salvar
         if precisa_supervisao(username) and not novas_configs.get('supervisao_ativa', False):
             flash("Modo infantil detectado! Configure a supervisão agora.")
@@ -1780,25 +2045,51 @@ def conta():
 
 @app.route('/api/videos')
 def api_videos():
-    page = int(request.args.get('page', 1))
-    per_page = int(request.args.get('per_page', 12))
-    offset = (page - 1) * per_page
-
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("""
-        SELECT id, title, views, channel, thumb 
-        FROM videos 
-        ORDER BY views DESC 
-        LIMIT ? OFFSET ?
-    """, (per_page, offset))
-    videos = [dict(r) for r in c.fetchall()]
+    page     = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 16))
+    feed     = request.args.get('feed', 'em-alta')   # ← NOVO
+    offset   = (page - 1) * per_page
+ 
+    # Reutiliza a mesma lógica de filtro de classificação
+    max_class = '18'
+    username  = session.get('username')
+    if username:
+        path = get_user_config_path(username)
+        if os.path.exists(path):
+            with open(path, 'r', encoding='utf-8') as f:
+                configs = json.load(f)
+            max_class = configs.get('classificacao_maxima', '18')
+ 
+    all_videos = load_videos()
+    videos_permitidos = [
+        v for v in all_videos
+        if pode_assistir_video(v.get('classificacao', 'L'), max_class)
+    ]
+ 
+    conn  = get_db()
+    likes = carregar_likes(conn)
     conn.close()
-
-    return jsonify({
-        'videos': videos,
-        'static_url': STATIC_SERVER_URL
-    })
+ 
+    # Aplica o algoritmo correto conforme o feed solicitado
+    if feed == 'recentes':
+        todos = feed_recentes(videos_permitidos, limite=99999)
+    else:  # 'em-alta' (padrão)
+        todos = feed_em_alta(videos_permitidos, likes, limite=99999)
+ 
+    # Paginação manual sobre a lista já ordenada
+    fatia   = todos[offset: offset + per_page]
+    simples = [
+        {
+            'id':      v['id'],
+            'title':   v['title'],
+            'views':   v['views'],
+            'channel': v['channel'],
+            'thumb':   v.get('thumb', ''),
+        }
+        for v in fatia
+    ]
+ 
+    return jsonify({'videos': simples, 'static_url': STATIC_SERVER_URL})
 
 # ==================== EDITAR VÍDEO ====================
 @app.route('/editar-video/<video_id>', methods=['GET', 'POST'])
@@ -1882,17 +2173,54 @@ def auth_callback():
 def ajuda():
     return render_template('ajuda.html')
 
+@app.route('/unsubscribe/<username>', methods=['POST'])
+def unsubscribe(username):
+    if 'username' not in session:
+        return 'Não logado', 403
+
+    inscrito = session['username']
+
+    conn = get_db()
+    c = conn.cursor()
+
+    c.execute(
+        "DELETE FROM subscribers WHERE channel = ? AND username = ?",
+        (username, inscrito)
+    )
+
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for('canal', username=username))
+
+@app.route('/embed/<video_id>', endpoint="embed")
+def embed(video_id):
+    video = get_video(video_id)
+    if not video:
+        abort(404)
+    
+    return render_template("embed.html", video=video)
+
+@app.route('/offline.js')
+def service_worker():
+    return send_from_directory(
+        r'D:\cstatic',
+        'offline.js',
+        mimetype='application/javascript'
+    )
+    
+@app.route('/logout')
+def logout():
+    session.clear()  # remove todos os dados da sessão
+    flash("Você saiu da sua conta.")
+    return redirect(url_for('login'))
+
+# Run
 # Run
 if __name__ == '__main__':
-    # run with eventlet recommended for socketio
-    try:
-        socketio.run(
-        app,
-        host="0.0.0.0",
-        port=7070,
-        debug=False,
-        ssl_context=('192.168.0.150.pem', '192.168.0.150-key.pem')
-    )
-    except Exception:
-        # fallback to flask dev server if socketio missing
-        app.run(host="0.0.0.0", port=7070, debug=False, threaded=True, ssl_context=('192.168.0.150.pem', '192.168.0.150-key.pem'))
+    # ATENÇÃO: isto aqui é só para desenvolvimento local, sem HTTPS e sem
+    # debug (debug=True nunca deve rodar num servidor exposto à internet —
+    # o debugger do Werkzeug permite executar código arbitrário se alguém
+    # achar o endpoint). Em produção, quem sobe o app é o serve.py
+    # (Waitress), atrás do Nginx cuidando do HTTPS. Veja serve.py.
+    app.run(host="127.0.0.1", port=8000, debug=False, threaded=True)
