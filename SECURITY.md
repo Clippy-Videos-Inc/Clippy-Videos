@@ -10,5 +10,6 @@ versões de apps que o clippy videos usa:
 | ffmpeg       | < 7.0   | :x:                |
 | SQlite       |< 3.53.3 | :white_check_mark: |
 | SQlite       |< 3.47.0 | :x:                |
+| Nginx        |< 1.31.3 | ✅                |
 
 OBS: eu não tenho certeza de quais versões dos apps que funcionam no projeto, isso é só uma estimação! (só sei do python) 
