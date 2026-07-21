@@ -1,3 +1,5 @@
+<img src="readme-files/logo.png">
+
 # Clippy Videos
 o Clippy Videos é um projeto de uma rede social open-source isso significa que qualquer pessoa pode mexer no projeto,
 mas isso não é um problema, veja o Linux, ele está presente em muitos lugares secretos e empresas além de todo mundo confiar nele, como que você não confiaria no meu projeto?
