@@ -5,7 +5,7 @@ o Clippy Videos é um projeto de uma rede social open-source isso significa que 
 mas isso não é um problema, veja o Linux, ele está presente em muitos lugares secretos e empresas além de todo mundo confiar nele, como que você não confiaria no meu projeto?
 
 o Clippy Videos usa flask e outras libs do python, você precisa instalar todas as libs do projeto!
-"pip install flask", "pip install secrets" e outras coisas...
+"pip install flask", "pip install secrets" e outras coisas... use "pip install -r requirements.txt"
 
 # **história**
 o Clippy Videos foi criado em 09/09/25 com o nome de "Play Videos" no início era só um teste, mas acabou virando uma
