@@ -765,4 +765,4 @@ def editar_video(username, video_id):
     return render_template('editar_video.html', video=video, username=username)
 
 if __name__ == '__main__':
-    studio_app.run(host="0.0.0.0", port=7072, threaded=True, debug=True, ssl_context=('192.168.0.150.pem', '192.168.0.150-key.pem'))  # Porta separada para independência
+    studio_app.run(host="0.0.0.0", port=7072, threaded=True, debug=False, ssl_context=('192.168.0.150.pem', '192.168.0.150-key.pem'))  # Porta separada para independência
