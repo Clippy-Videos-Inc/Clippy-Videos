@@ -105,6 +105,91 @@
       font-size: 13px;
       text-align: center;
     }
+
+    /* ==== NOTIFICAÇÃO DE CARD (canto superior direito) ==== */
+    #cardToastContainer {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .card-toast {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(20,20,35,0.95);
+      border: 1px solid rgba(106,106,255,0.6);
+      border-radius: 10px;
+      padding: 10px 26px 10px 10px;
+      width: 240px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+      text-decoration: none;
+      color: #fff;
+      position: relative;
+      animation: cardToastIn 0.35s ease;
+    }
+    .card-toast.fade-out {
+      animation: cardToastOut 0.35s ease forwards;
+    }
+    @keyframes cardToastIn {
+      from { transform: translateX(30px); opacity: 0; }
+      to   { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes cardToastOut {
+      to { transform: translateX(30px); opacity: 0; }
+    }
+    .card-toast img {
+      width: 70px;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      border-radius: 6px;
+      flex-shrink: 0;
+      background: #333;
+    }
+    .card-toast .toast-info { flex: 1; min-width: 0; }
+    .card-toast .toast-rotulo {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #9d9dff;
+      margin-bottom: 3px;
+    }
+    .card-toast .toast-titulo {
+      font-size: 13px;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .card-toast .toast-fechar {
+      position: absolute;
+      top: 4px; right: 6px;
+      background: none;
+      border: none;
+      color: #999;
+      font-size: 15px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 2px 4px;
+    }
+    .card-toast .toast-fechar:hover { color: #fff; }
+
+    /* ==== FRAME CONGELADO NO PREVIEW DA BARRA ==== */
+    #previewCanvas {
+      display: block;
+      width: 190px;
+      height: 108px;
+      border-radius: 1px;
+      background: #111;
+      margin-bottom: 0px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+    }
   </style>
 </head>
 <body>
@@ -142,6 +227,7 @@
         <div class="fill" id="fill"></div>
         <div class="dot" id="dot"></div>
         <div id="previewBox">
+          <canvas id="previewCanvas" width="160" height="90"></canvas>
           <div id="previewTime"></div>
           <div id="previewChapter"></div>
         </div>
@@ -252,7 +338,15 @@
     </div>
 
     <div id="centerIcon"><img id="centerIconImg" src="" style="width: 72px; height: 72px;"></div>
+
+    <!-- NOTIFICAÇÕES DE CARD (aparecem quando um card fica disponível) -->
+    <div id="cardToastContainer"></div>
   </div>
+
+  <!-- Vídeo escondido, só usado pra "tirar uma foto" do frame na posição
+       do mouse e mostrar no preview da barra de progresso -->
+  <video id="previewBuffer" src="{{ static_url }}uploads/{{ video.filename }}" muted preload="metadata"
+         style="position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; top:-9999px; left:-9999px;"></video>
 
   <script>
         const vid = document.getElementById('vid');
@@ -267,6 +361,50 @@
     const previewBox = document.getElementById('previewBox');
     const previewTime = document.getElementById('previewTime');
     const previewChapter = document.getElementById('previewChapter');
+    const previewCanvas = document.getElementById('previewCanvas');
+    const previewCtx = previewCanvas.getContext('2d');
+    const previewBuffer = document.getElementById('previewBuffer');
+
+    // Captura o frame congelado no ponto que o mouse está em cima da
+    // barra de progresso. Usa um <video> escondido (previewBuffer) que
+    // fica "correndo atrás" do mouse: a cada seek, espera decodificar
+    // e desenha o frame no canvas. Throttle simples (um seek de cada
+    // vez) pra não travar passando o mouse rápido pela barra.
+    let previewSeekPendente = null;
+    let previewSeekEmAndamento = false;
+
+    function atualizarFramePreview(segundos) {
+      previewSeekPendente = segundos;
+      if (!previewSeekEmAndamento) processarProximoSeekPreview();
+    }
+
+    function processarProximoSeekPreview() {
+      if (previewSeekPendente === null) { previewSeekEmAndamento = false; return; }
+      const alvo = previewSeekPendente;
+      previewSeekPendente = null;
+
+      if (Math.abs((previewBuffer.currentTime || 0) - alvo) < 0.2) {
+        // já tá bem perto do frame certo, não precisa re-seekar
+        processarProximoSeekPreview();
+        return;
+      }
+      previewSeekEmAndamento = true;
+      try {
+        previewBuffer.currentTime = alvo;
+      } catch (e) {
+        previewSeekEmAndamento = false;
+      }
+    }
+
+    previewBuffer.addEventListener('seeked', () => {
+      try {
+        previewCtx.drawImage(previewBuffer, 0, 0, previewCanvas.width, previewCanvas.height);
+      } catch (e) {
+        // frame ainda não decodificado nesse navegador, ignora essa passada
+      }
+      previewSeekEmAndamento = false;
+      processarProximoSeekPreview();
+    });
     const playIcon = document.getElementById('playIcon');
     const centerIcon = document.getElementById('centerIcon');
     const centerIconImg = document.getElementById('centerIconImg');
@@ -431,6 +569,7 @@
       dot.style.left = (pct * 100) + '%';
       
       previewTime.textContent = fmt(previewSeconds);
+      atualizarFramePreview(previewSeconds);
       
       const chapterName = getChapterAtTime(previewSeconds);
       if (chapterName) {
@@ -609,7 +748,8 @@
     // MENU DE CARDS (vídeos relacionados que aparecem conforme o vídeo avança)
     const btnCards = document.getElementById('btnCards');
     const cardsPanel = document.getElementById('cardsPanel');
-    let cardsJaVistos = 0;
+    const cardToastContainer = document.getElementById('cardToastContainer');
+    const cardsNotificados = new Set(); // guarda quais cards já apareceram como notificação
 
     function renderCardsPanel() {
       const atual = vid.currentTime || 0;
@@ -628,6 +768,37 @@
       `).join('');
     }
 
+    // Notificação no canto superior direito quando um card fica disponível
+    function mostrarToastCard(card) {
+      const toast = document.createElement('a');
+      toast.href = `/watch/${card.video_id}`;
+      toast.className = 'card-toast';
+      toast.innerHTML = `
+        <button type="button" class="toast-fechar" aria-label="Fechar">×</button>
+        ${card.thumb
+          ? `<img src="{{ static_url }}uploads/${card.thumb}" alt="">`
+          : '<div style="width:70px;aspect-ratio:16/9;background:#333;border-radius:6px;flex-shrink:0;"></div>'}
+        <div class="toast-info">
+          <div class="toast-rotulo">Vídeo relacionado</div>
+          <div class="toast-titulo">${card.title}</div>
+        </div>
+      `;
+      toast.querySelector('.toast-fechar').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        removerToastCard(toast);
+      });
+
+      cardToastContainer.appendChild(toast);
+      setTimeout(() => removerToastCard(toast), 6000);
+    }
+
+    function removerToastCard(toast) {
+      if (!toast.isConnected || toast.classList.contains('fade-out')) return;
+      toast.classList.add('fade-out');
+      setTimeout(() => toast.remove(), 350);
+    }
+
     if (btnCards) {
       btnCards.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -637,15 +808,24 @@
         subtitleMenu.style.display = 'none';
         btnCards.classList.remove('cards-novo');
       });
+    }
 
-      // Mostra um indicador visual quando um novo card fica disponível
+    // Dispara a notificação e o indicador visual assim que cada card
+    // individual fica disponível (uma vez só por card, mesmo se o
+    // usuário voltar e passar pelo mesmo trecho de novo)
+    if (CARDS.length > 0) {
       vid.addEventListener('timeupdate', () => {
         const atual = vid.currentTime || 0;
-        const count = CARDS.filter(c => (c.time || 0) <= atual).length;
-        if (count > cardsJaVistos && !cardsPanel.classList.contains('active')) {
-          btnCards.classList.add('cards-novo');
-        }
-        cardsJaVistos = count;
+        CARDS.forEach((c, idx) => {
+          const chave = `${c.video_id}_${idx}`;
+          if ((c.time || 0) <= atual && !cardsNotificados.has(chave)) {
+            cardsNotificados.add(chave);
+            mostrarToastCard(c);
+            if (btnCards && !cardsPanel.classList.contains('active')) {
+              btnCards.classList.add('cards-novo');
+            }
+          }
+        });
       });
     }
 
