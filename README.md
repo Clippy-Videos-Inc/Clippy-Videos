@@ -1,10 +1,7 @@
 <img src="readme-files/logo.png" style="weight: 40px; height: 150px;">
 
 # Clippy Videos
-o Clippy Videos é um projeto de uma rede social open-source isso significa que qualquer pessoa pode mexer no projeto,
-mas isso não é um problema, veja o Linux, ele está presente em muitos lugares secretos e empresas além de todo mundo confiar nele, como que você não confiaria no meu projeto?
-
-o Clippy Videos usa flask e outras libs do python, você precisa instalar todas as libs do projeto!
+o Clippy Videos é um projeto de uma rede social, o Clippy Videos usa flask e outras libs do python, você precisa instalar todas as libs do projeto!
 "pip install flask", "pip install secrets" e outras coisas... use "pip install -r requirements.txt"
 
 # **história**
