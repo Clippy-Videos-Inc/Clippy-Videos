@@ -77,6 +77,20 @@
             color: #aaa;
         }
 
+        .checkbox-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin: 25px 0;
+            padding: 16px;
+            background: #1f1f38;
+            border: 2px solid #5e5eff;
+            border-radius: 12px;
+        }
+        .checkbox-row input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; }
+        .checkbox-row label { margin: 0; font-weight: 700; }
+        .checkbox-row small { display: block; font-weight: 400; color: #9d9dff; margin-top: 4px; }
+
         button {
             background: linear-gradient(#6a6aff, #9d9dff);
             color: white;
@@ -122,6 +136,15 @@
         <!-- DESCRIÇÃO -->
         <label>Descrição completa</label>
         <textarea name="description" rows="5" required>{{ video.description }}</textarea>
+
+        <!-- VÍDEO 360° -->
+        <div class="checkbox-row">
+            <input type="checkbox" name="is_360" value="1" id="is360Check" {% if video.is_360 %}checked{% endif %}>
+            <div>
+                <label for="is360Check">🌐 Este é um vídeo 360°</label>
+                <small>Marque se o arquivo enviado está em projeção equiretangular (padrão de câmeras 360°). O player passa a mostrar uma visão navegável em vez do vídeo plano.</small>
+            </div>
+        </div>
 
         <!-- CAPÍTULOS -->
         <label>Capítulos (um por linha: tempo - título)</label>

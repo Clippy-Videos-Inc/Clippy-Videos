@@ -5,6 +5,10 @@
   <title>{{ video.title }} — Player interno</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="{{ static_url }}scripts/player.css">
+  <!-- three.js -- só é usado quando o vídeo é marcado como 360° (video.is_360).
+       Carregado sempre (é leve) pra simplificar; dá pra condicionar o
+       carregamento a esse campo depois, se quiser. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
     .volume-container {
       display: flex;
@@ -190,16 +194,72 @@
       margin-bottom: 0px;
       box-shadow: 0 4px 14px rgba(0,0,0,0.6);
     }
+
+    /* ==== PLAYER 360° ==== */
+    .pv-video.modo-360 {
+      /* o <video> continua decodificando quadros normalmente (é usado como
+         textura), só não é mais desenhado diretamente na tela */
+      opacity: 0;
+      pointer-events: none;
+    }
+    #canvas360 {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      cursor: grab;
+      touch-action: none;
+    }
+    #canvas360.ativo { display: block; }
+    #canvas360:active { cursor: grabbing; }
+    .badge-360 {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.6);
+      border: 1px solid rgba(106,106,255,0.6);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 5px 14px;
+      border-radius: 20px;
+      z-index: 20;
+      pointer-events: none;
+      letter-spacing: 0.5px;
+    }
+    .btn-reset-360 {
+      position: absolute;
+      top: 12px;
+      right: 16px;
+      z-index: 20;
+      background: rgba(0,0,0,0.6);
+      border: 1px solid rgba(106,106,255,0.6);
+      color: #fff;
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
   <div class="pv-stage" id="pv">
-    <video class="pv-video" id="vid" src="{{ static_url }}uploads/{{ video.filename }}" preload="metadata">
+    <video class="pv-video" id="vid" src="{{ static_url }}uploads/{{ video.filename }}" preload="metadata" playsinline>
       <!-- LEGENDAS SRT -->
       {% if video.subtitle_file %}
       <track id="subtitleTrack" label="Português" kind="subtitles" srclang="pt" src="{{ static_url }}uploads/subtitles/{{ video.subtitle_file }}">
       {% endif %}
     </video>
+
+    {% if video.is_360 %}
+    <!-- Canvas onde a esfera 360° é desenhada (o <video> acima vira a
+         textura da esfera, ele mesmo fica invisível) -->
+    <canvas id="canvas360"></canvas>
+    <div class="badge-360">🌐 360°</div>
+    <button type="button" class="btn-reset-360" id="btnReset360" title="Centralizar vista">🎯 Centralizar</button>
+    {% endif %}
 
     <!-- TELA FINAL -->
     <div class="pv-endscreen" id="endScreen">
@@ -344,7 +404,9 @@
   </div>
 
   <!-- Vídeo escondido, só usado pra "tirar uma foto" do frame na posição
-       do mouse e mostrar no preview da barra de progresso -->
+       do mouse e mostrar no preview da barra de progresso. Em vídeos 360°
+       isso mostraria a projeção equiretangular "achatada", o que já serve
+       como referência visual da posição no tempo. -->
   <video id="previewBuffer" src="{{ static_url }}uploads/{{ video.filename }}" muted preload="metadata"
          style="position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; top:-9999px; left:-9999px;"></video>
 
@@ -364,6 +426,7 @@
     const previewCanvas = document.getElementById('previewCanvas');
     const previewCtx = previewCanvas.getContext('2d');
     const previewBuffer = document.getElementById('previewBuffer');
+    const IS_360 = {{ 'true' if video.is_360 else 'false' }};
 
     // Captura o frame congelado no ponto que o mouse está em cima da
     // barra de progresso. Usa um <video> escondido (previewBuffer) que
@@ -938,5 +1001,151 @@
     });
     resetHideTimer();
   </script>
+
+  {% if video.is_360 %}
+  <script>
+    // ==================== PLAYER 360° (three.js) ====================
+    // Ideia: o <video> normal continua tocando/decodificando por trás dos
+    // panos (mudo pra tela, opacity:0), e viramos ele uma VideoTexture
+    // mapeada por dentro de uma esfera. A "câmera" fica no centro da
+    // esfera e o usuário gira o olhar arrastando o mouse/dedo -- é o
+    // mesmo truque clássico usado em qualquer visualizador de fotos 360°.
+    (function () {
+      if (typeof THREE === 'undefined') {
+        console.warn('three.js não carregou -- player 360° desativado, mostrando o vídeo plano.');
+        return;
+      }
+
+      const canvas = document.getElementById('canvas360');
+      const btnReset = document.getElementById('btnReset360');
+
+      let scene, camera, renderer, videoTexture;
+      let lon = 0, lat = 0;
+      let isDragging = false, prevX = 0, prevY = 0;
+      let iniciado = false;
+
+      function coordenadas(e) {
+        if (e.touches && e.touches.length) {
+          return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }
+        return { x: e.clientX, y: e.clientY };
+      }
+
+      function iniciar360() {
+        if (iniciado) return;
+        iniciado = true;
+
+        canvas.classList.add('ativo');
+        vid.classList.add('modo-360');
+
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(75, stage.clientWidth / stage.clientHeight, 1, 1100);
+
+        renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio || 1);
+        renderer.setSize(stage.clientWidth, stage.clientHeight);
+
+        // Esfera "de dentro pra fora": invertendo o eixo X das normais,
+        // a textura fica visível olhando do centro pra fora, em vez de
+        // só ser visível olhando a esfera por fora (que não serve pra nada
+        // aqui, já que a câmera SEMPRE fica no centro).
+        const geometry = new THREE.SphereGeometry(500, 60, 40);
+        geometry.scale(-1, 1, 1);
+
+        videoTexture = new THREE.VideoTexture(vid);
+        videoTexture.minFilter = THREE.LinearFilter;
+        videoTexture.magFilter = THREE.LinearFilter;
+        videoTexture.format = THREE.RGBFormat;
+
+        const material = new THREE.MeshBasicMaterial({ map: videoTexture });
+        const sphere = new THREE.Mesh(geometry, material);
+        scene.add(sphere);
+
+        canvas.addEventListener('mousedown', onArrastarInicio);
+        window.addEventListener('mousemove', onArrastarMove);
+        window.addEventListener('mouseup', onArrastarFim);
+        canvas.addEventListener('touchstart', onArrastarInicio, { passive: true });
+        canvas.addEventListener('touchmove', onArrastarMove, { passive: true });
+        canvas.addEventListener('touchend', onArrastarFim);
+        canvas.addEventListener('wheel', onZoom, { passive: false });
+        window.addEventListener('resize', redimensionar360);
+
+        if (btnReset) {
+          btnReset.addEventListener('click', () => { lon = 0; lat = 0; });
+        }
+
+        animar360();
+      }
+
+      function onArrastarInicio(e) {
+        isDragging = true;
+        const p = coordenadas(e);
+        prevX = p.x;
+        prevY = p.y;
+      }
+
+      function onArrastarMove(e) {
+        if (!isDragging) return;
+        const p = coordenadas(e);
+        const dx = p.x - prevX;
+        const dy = p.y - prevY;
+        prevX = p.x;
+        prevY = p.y;
+
+        lon -= dx * 0.22;
+        lat += dy * 0.22;
+        lat = Math.max(-85, Math.min(85, lat));
+      }
+
+      function onArrastarFim() {
+        isDragging = false;
+      }
+
+      function onZoom(e) {
+        e.preventDefault();
+        const novoFov = camera.fov + e.deltaY * 0.05;
+        camera.fov = Math.max(30, Math.min(100, novoFov));
+        camera.updateProjectionMatrix();
+      }
+
+      function redimensionar360() {
+        if (!renderer) return;
+        renderer.setSize(stage.clientWidth, stage.clientHeight);
+        camera.aspect = stage.clientWidth / stage.clientHeight;
+        camera.updateProjectionMatrix();
+      }
+
+      function animar360() {
+        requestAnimationFrame(animar360);
+        if (!renderer) return;
+
+        const phi = THREE.MathUtils.degToRad(90 - lat);
+        const theta = THREE.MathUtils.degToRad(lon);
+
+        const alvo = new THREE.Vector3(
+          500 * Math.sin(phi) * Math.cos(theta),
+          500 * Math.cos(phi),
+          500 * Math.sin(phi) * Math.sin(theta)
+        );
+
+        camera.lookAt(alvo);
+        renderer.render(scene, camera);
+      }
+
+      // Espera o vídeo ter pelo menos os metadados carregados (dimensões
+      // conhecidas) antes de montar a textura, pra esfera nascer no
+      // tamanho certo.
+      if (vid.readyState >= 1) {
+        iniciar360();
+      } else {
+        vid.addEventListener('loadedmetadata', iniciar360, { once: true });
+      }
+
+      // Também redesenha quando entra/sai do fullscreen, já que o
+      // tamanho do stage muda
+      document.addEventListener('fullscreenchange', redimensionar360);
+    })();
+  </script>
+  {% endif %}
 </body>
 </html>

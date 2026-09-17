@@ -134,6 +134,8 @@
             border: 3px solid var(--neon);
             padding: 30px;
             box-shadow: 0 0 40px rgba(106,106,255,0.8);
+            max-height: 88vh;
+            overflow-y: auto;
         }
 
         .step { display: none; }
@@ -161,6 +163,20 @@
         }
         button:hover { transform: scale(1.05); box-shadow: 0 0 20px #6a6aff; }
 
+        .checkbox-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            background: #25253d;
+            border: 2px solid #5e5eff;
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 14px;
+        }
+        .checkbox-row input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; margin: 2px 0 0; }
+        .checkbox-row label { font-size: 14px; color: #ddd; margin: 0; }
+        .checkbox-row small { display: block; color: #9d9dff; margin-top: 3px; font-weight: 400; }
+
         /* Lista de vídeos */
         .video-list {
             display: grid;
@@ -184,6 +200,16 @@
         .video-card .info {
             padding: 14px;
         }
+        .badge-360 {
+            display: inline-block;
+            background: linear-gradient(90deg, #00c9a7, #4ecdc4);
+            color: #06231f;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 3px 10px;
+            border-radius: 20px;
+            margin-bottom: 6px;
+        }
         .btn-edit {
             background: linear-gradient(#ff2d8d, #ff6ab3);
             margin-top: 8px;
@@ -206,6 +232,7 @@
             <li><a href="{{ url_for('gerenciar_collabs', username=username) }}"><img src="{{ static_url }}users.png" width="28"><span>Colabs</span></a></li>
             <li><a href="/live"><img src="{{ static_url }}w.png" width="28"><span>Criar Live</span></a></li>
             <li><a href="/studio/{{ username }}/posts"><img src="{{ static_url }}posts.png" width="28"><span>Posts</span></a></li>
+            <li><a href="{{ url_for('config_canal', username=username) }}"><img src="{{ static_url }}icons/settings.png" width="28"><span>Configurações</span></a></li>
         </ul>
     </nav>
 
@@ -240,7 +267,12 @@
             <div class="stat-card"><h2>{{ subscribers }}</h2><p>Inscritos</p></div>
         </div>
 
-        <button onclick="openModal()" style="margin-bottom:30px;">📤 Enviar Novo Vídeo</button>
+        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:30px;">
+            <button onclick="openModal()">📤 Enviar Novo Vídeo</button>
+            <a href="{{ url_for('config_canal', username=username) }}" style="text-decoration:none;">
+                <button type="button" style="background:linear-gradient(#3a3a5c,#25253d); border:2px solid var(--neon);">⚙️ Configurações do Canal</button>
+            </a>
+        </div>
 
         <!-- LISTA DE VÍDEOS -->
         <h2 class="section-title" style="margin-bottom:20px;">Seus Vídeos</h2>
@@ -249,6 +281,7 @@
             <div class="video-card">
                 <iframe src="https://192.168.0.150:7070/embed/{{ video.id }}" allowfullscreen></iframe>
                 <div class="info">
+                    {% if video.is_360 %}<span class="badge-360">🌐 360°</span>{% endif %}
                     <h3>{{ video.title }}</h3>
                     <p>{{ video.views }} views • {{ video.status or 'Publicado' }}</p>
                     
@@ -294,6 +327,14 @@
         <h3>Etapa 2 – Informações + Legendas + Capítulos</h3>
         <input type="text" name="title" placeholder="Título do vídeo" required>
         <textarea name="description" placeholder="Descrição completa" rows="3" required></textarea>
+
+        <div class="checkbox-row">
+          <input type="checkbox" name="is_360" value="1" id="is360Check">
+          <label for="is360Check">
+            🌐 Este é um vídeo 360°
+            <small>O arquivo precisa estar em projeção equiretangular (o formato padrão exportado por câmeras 360°). O player mostra uma visão navegável em vez do vídeo plano.</small>
+          </label>
+        </div>
         
         <!-- LEGENDAS .srt -->
         <label>Legendas (.srt)</label>

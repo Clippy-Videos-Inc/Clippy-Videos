@@ -59,6 +59,15 @@
 
     textarea { resize: none; height: 100px; }
 
+    .checkbox-row {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px; margin-bottom: 15px;
+    }
+    .checkbox-row input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; }
+    .checkbox-row label { font-size: 14px; color: #ddd; margin: 0; }
+    .checkbox-row small { display: block; color: #888; font-size: 11px; margin-top: 2px; }
+
     .publish-btn {
       width: 100%; background: white; color: black; border: none;
       padding: 15px; border-radius: 30px; font-size: 16px; font-weight: bold;
@@ -101,6 +110,14 @@
     <div class="form-group">
       <label>Descrição</label>
       <textarea name="description" placeholder="Conte aos espectadores sobre o seu vídeo"></textarea>
+    </div>
+
+    <div class="checkbox-row">
+      <input type="checkbox" name="is_360" value="1" id="is360Check">
+      <label for="is360Check">
+        🌐 Vídeo 360°
+        <small>Marque se este vídeo foi gravado com uma câmera 360° (esférica/equiretangular)</small>
+      </label>
     </div>
 
     <div class="form-group">

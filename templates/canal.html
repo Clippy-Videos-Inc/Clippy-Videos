@@ -195,7 +195,7 @@
     <main class="main-content">
         <div class="channel-header">
             {% if banner %}
-                <img src="{{ static_url }}uploads/banners/banner_{{ username }}.png" class="banner-img" alt="Banner">
+                <img src="{{ banner_path }}" class="banner-img" alt="Banner">
             {% else %}
                 <div style="width:100%; height:100%; background:linear-gradient(45deg,#1f1f38,#2c2c4c); display:flex; align-items:center; justify-content:center; font-size:1.4rem; color:#555;">
                     {{ t.canal.sem_banner }}
