@@ -144,7 +144,8 @@ def init_db():
         created_at TEXT,
         status TEXT DEFAULT 'pendente',
         classificacao TEXT DEFAULT 'L',
-        cards TEXT DEFAULT '[]'
+        cards TEXT DEFAULT '[]',
+        is_360 INTEGER DEFAULT 0
     )
     """)
     
@@ -393,6 +394,7 @@ def garantir_colunas_novas():
     for tabela, coluna, tipo in [
         ("channels", "banner_path", "TEXT"),
         ("videos", "cards", "TEXT DEFAULT '[]'"),
+        ("videos", "is_360", "INTEGER DEFAULT 0"),
     ]:
         try:
             c.execute(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {tipo}")
@@ -434,9 +436,9 @@ def save_video_entry(video_entry):
         INSERT OR REPLACE INTO videos (
             id, filename, filename_144p, filename_480p,
             title, description, views, channel, thumb,
-            subtitles, status, created_at
+            subtitles, status, created_at, is_360
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         video_entry['id'],
         video_entry.get('filename'),
@@ -449,7 +451,8 @@ def save_video_entry(video_entry):
         video_entry.get('thumb'),
         subtitles_json, # Agora a variável existe acima
         video_entry.get('status', 'pendente'),
-        video_entry.get('created_at')
+        video_entry.get('created_at'),
+        int(video_entry.get('is_360', 0))
     ))
     conn.commit()
     conn.close()
@@ -791,7 +794,8 @@ def index():
                 'thumb': thumb_filename,
                 'subtitles': [],
                 'status': 'pendente',
-                'created_at': datetime.utcnow().isoformat()
+                'created_at': datetime.utcnow().isoformat(),
+                'is_360': 1 if request.form.get('is_360') else 0
             }
             save_video_entry(video_entry)
  
@@ -1219,8 +1223,8 @@ def mobile_buscar():
 def mobile_player(video_id):
     video = get_video(video_id)
     if video:
+        increment_video_views(video_id)
         video['views'] = int(video.get('views', 0)) + 1
-        save_video_entry(video)
         caminho = os.path.join(COMMENTS_FOLDER, f'{video_id}.txt')
         comentarios = []
         if os.path.exists(caminho):
@@ -2105,6 +2109,7 @@ def editar_video(video_id):
         new_title = request.form.get('title')
         new_description = request.form.get('description')
         new_chapters = request.form.get('chapters', '')
+        new_is_360 = 1 if request.form.get('is_360') else 0
         subtitle_file = request.files.get('subtitle')
 
         subtitle_path = video.get('subtitle_file', '')
@@ -2116,9 +2121,9 @@ def editar_video(video_id):
         c = conn.cursor()
         c.execute("""
             UPDATE videos 
-            SET title = ?, description = ?, chapters = ?, subtitle_file = ?
+            SET title = ?, description = ?, chapters = ?, subtitle_file = ?, is_360 = ?
             WHERE id = ?
-        """, (new_title, new_description, new_chapters, subtitle_path, video_id))
+        """, (new_title, new_description, new_chapters, subtitle_path, new_is_360, video_id))
         conn.commit()
         conn.close()
 

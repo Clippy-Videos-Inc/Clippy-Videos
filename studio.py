@@ -1,6 +1,7 @@
 # studio.py (servidor Flask independente para o Studio)
 
 import os
+import shutil
 import uuid
 import subprocess
 import sqlite3
@@ -116,8 +117,8 @@ def save_video_entry(video_entry):
     c.execute("""
         INSERT OR REPLACE INTO videos 
         (id, filename, filename_144p, filename_360p, filename_480p, title, 
-         description, views, channel, thumb, subtitles, chapters, subtitle_file, status, cards)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         description, views, channel, thumb, subtitles, chapters, subtitle_file, status, cards, is_360)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         video_entry['id'],
         video_entry.get('filename'),
@@ -133,7 +134,8 @@ def save_video_entry(video_entry):
         video_entry.get('chapters', ''),
         video_entry.get('subtitle_file', ''),
         video_entry.get('status', 'publicado'),
-        cards
+        cards,
+        int(video_entry.get('is_360', 0))
     ))
     conn.commit()
     conn.close()
@@ -159,12 +161,13 @@ def garantir_colunas_novas():
     for tabela, coluna, tipo in [
         ("channels", "banner_path", "TEXT"),
         ("videos", "cards", "TEXT DEFAULT '[]'"),
+        ("videos", "is_360", "INTEGER DEFAULT 0"),
     ]:
         try:
             c.execute(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {tipo}")
             conn.commit()
         except sqlite3.OperationalError:
-            pass  # coluna já existe, tudo certo
+            pass
     conn.close()
 
 garantir_colunas_novas()
@@ -370,7 +373,8 @@ def studio_mobile_upload(username):
             'channel': username,
             'thumb': thumb_filename,
             'subtitles': [],
-            'status': 'pendente'
+            'status': 'pendente',
+            'is_360': 1 if request.form.get('is_360') else 0
         }
         
         save_video_entry(video_entry)
@@ -472,7 +476,8 @@ def upload_video(username):
         'subtitles': [],
         'chapters': chapters,
         'subtitle_file': subtitle_path,
-        'status': 'publicado'
+        'status': 'publicado',
+        'is_360': 1 if request.form.get('is_360') else 0
     }
 
     save_video_entry(video_entry)
@@ -748,6 +753,7 @@ def editar_video(username, video_id):
         video['title'] = request.form.get('title', video.get('title'))
         video['description'] = request.form.get('description', video.get('description'))
         video['chapters'] = request.form.get('chapters', video.get('chapters', ''))
+        video['is_360'] = 1 if request.form.get('is_360') else 0
 
         cards_texto = request.form.get('cards', '')
         video['cards'] = _parse_cards(cards_texto)
@@ -763,6 +769,155 @@ def editar_video(username, video_id):
 
     video['cards_texto'] = _cards_para_texto(video.get('cards'))
     return render_template('editar_video.html', video=video, username=username)
+
+
+# ================= CONFIGURAÇÕES DO CANAL =================
+# Página central pra gerenciar o canal: trocar foto/banner (reaproveita as
+# rotas que já existiam), editar nome/bio, trocar senha, e excluir o canal.
+
+@studio_app.route('/studio/<username>/configuracoes')
+@dono_do_canal
+def config_canal(username):
+    ch = get_channel_info(username)
+    if not ch:
+        return "Canal não encontrado", 404
+
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) as cnt FROM videos WHERE channel = ?", (username,))
+    total_videos = c.fetchone()['cnt']
+    conn.close()
+
+    return render_template('channel_config.html',
+                           username=username,
+                           channel=ch,
+                           total_videos=total_videos)
+
+
+@studio_app.route('/studio/<username>/atualizar_info', methods=['POST'])
+@dono_do_canal
+def atualizar_info_canal(username):
+    ch = get_channel_info(username)
+    if not ch:
+        return "Canal não encontrado", 404
+
+    novo_nome = request.form.get('display_name', '').strip()
+    nova_bio = request.form.get('bio', '').strip()
+
+    if not novo_nome:
+        flash("O nome do canal não pode ficar vazio.")
+        return redirect(url_for('config_canal', username=username))
+
+    create_channel_record(username, novo_nome, nova_bio, ch.get('password', ''), ch.get('foto_path'))
+
+    # info.txt também é lido pelo app principal (rota canal()) pra mostrar
+    # nome/bio -- mantém os dois lugares sincronizados
+    channel_path = os.path.join('channels', f'@{username}')
+    os.makedirs(channel_path, exist_ok=True)
+    with open(os.path.join(channel_path, 'info.txt'), 'w', encoding='utf-8') as f:
+        f.write(f"{novo_nome}\n{nova_bio}\n")
+
+    flash("Informações do canal atualizadas!")
+    return redirect(url_for('config_canal', username=username))
+
+
+@studio_app.route('/studio/<username>/alterar_senha_canal', methods=['POST'])
+@dono_do_canal
+def alterar_senha_canal(username):
+    ch = get_channel_info(username)
+    if not ch:
+        return "Canal não encontrado", 404
+
+    senha_atual = request.form.get('senha_atual', '')
+    nova_senha = request.form.get('nova_senha', '').strip()
+    confirmar_senha = request.form.get('confirmar_senha', '').strip()
+
+    if not verify_channel_password(senha_atual, ch.get('password', '')):
+        flash("Senha atual incorreta.")
+        return redirect(url_for('config_canal', username=username))
+
+    if not nova_senha:
+        flash("A nova senha não pode ficar vazia.")
+        return redirect(url_for('config_canal', username=username))
+
+    if nova_senha != confirmar_senha:
+        flash("A confirmação não bate com a nova senha.")
+        return redirect(url_for('config_canal', username=username))
+
+    create_channel_record(username, ch.get('display_name', username), ch.get('bio', ''), nova_senha, ch.get('foto_path'))
+    flash("Senha do canal alterada com sucesso!")
+    return redirect(url_for('config_canal', username=username))
+
+
+@studio_app.route('/studio/<username>/excluir_canal', methods=['POST'])
+@dono_do_canal
+def excluir_canal(username):
+    """Exclui o canal permanentemente. Pede a senha do canal de novo como
+    confirmação (mesmo padrão usado no upload de vídeo). Os vídeos podem
+    ser apagados junto ou apenas desvinculados do canal, conforme a
+    checkbox 'apagar_videos' marcada na página de configurações."""
+    ch = get_channel_info(username)
+    if not ch:
+        return "Canal não encontrado", 404
+
+    senha_digitada = request.form.get('password', '')
+    if not verify_channel_password(senha_digitada, ch.get('password', '')):
+        flash("Senha incorreta. O canal não foi excluído.")
+        return redirect(url_for('config_canal', username=username))
+
+    apagar_videos = request.form.get('apagar_videos') == '1'
+
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""SELECT id, filename, filename_144p, filename_360p, filename_480p
+                 FROM videos WHERE channel = ?""", (username,))
+    videos_do_canal = [dict(r) for r in c.fetchall()]
+
+    if apagar_videos:
+        for v in videos_do_canal:
+            c.execute("DELETE FROM videos WHERE id = ?", (v['id'],))
+            for fname in [v.get('filename'), v.get('filename_144p'),
+                          v.get('filename_360p'), v.get('filename_480p')]:
+                if fname:
+                    path = os.path.join(UPLOAD_FOLDER, fname)
+                    if os.path.exists(path):
+                        try:
+                            os.remove(path)
+                        except OSError:
+                            pass
+    else:
+        # Mantém os vídeos no ar, só desvincula do canal que está sendo apagado
+        c.execute("UPDATE videos SET channel = NULL WHERE channel = ?", (username,))
+
+    c.execute("DELETE FROM channels WHERE username = ?", (username,))
+    c.execute("DELETE FROM subscribers WHERE channel = ?", (username,))
+    c.execute("DELETE FROM collabs WHERE channel = ?", (username,))
+    conn.commit()
+    conn.close()
+
+    # Remove o banner do disco
+    banner_antigo = ch.get('banner_path')
+    if banner_antigo:
+        caminho_banner = os.path.join(BANNERS_FOLDER, banner_antigo)
+        if os.path.exists(caminho_banner):
+            try:
+                os.remove(caminho_banner)
+            except OSError:
+                pass
+
+    # Remove a pasta inteira do canal (foto.jpg, info.txt, etc.)
+    channel_dir = os.path.join('channels', f'@{username}')
+    if os.path.exists(channel_dir):
+        try:
+            shutil.rmtree(channel_dir)
+        except OSError:
+            pass
+
+    # A conta de usuário (login) continua existindo -- só o canal some.
+    # Limpa a sessão do Studio e manda a pessoa de volta pro site principal.
+    session.clear()
+    return redirect(APP_BASE_URL)
+
 
 if __name__ == '__main__':
     studio_app.run(host="0.0.0.0", port=7072, threaded=True, debug=False, ssl_context=('192.168.0.150.pem', '192.168.0.150-key.pem'))  # Porta separada para independência
