@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="PlayerView" extends="Group">
+    <interface>
+        <field id="videoId" type="string" onChange="OnVideoIdChange" />
+        <!-- MainScene observa este campo para saber quando voltar pra Home -->
+        <field id="closeRequested" type="boolean" alwaysNotify="true" value="false" />
+        <function name="Reset" />
+    </interface>
+
+    <children>
+        <Rectangle id="bg" width="1920" height="1080" color="0x000000FF" />
+
+        <Video
+            id="video"
+            width="1920"
+            height="1080"
+            visible="false"
+        />
+
+        <Label
+            id="loadingLabel"
+            text="Carregando..."
+            translation="[64, 980]"
+            font="font:LargeSystemFont"
+            color="0xCCCCCCFF"
+            visible="false"
+        />
+
+        <Label
+            id="errorLabel"
+            translation="[160, 460]"
+            width="1600"
+            wrap="true"
+            horizAlign="center"
+            font="font:MediumSystemFont"
+            color="0xFF6B6BFF"
+            visible="false"
+        />
+
+        <Label
+            id="titleOverlay"
+            translation="[64, 60]"
+            width="1792"
+            font="font:LargeSystemFont"
+            color="0xFFFFFFFF"
+            visible="false"
+        />
+    </children>
+
+    <script type="text/brightscript" uri="pkg:/components/PlayerView.brs" />
+</component>

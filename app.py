@@ -2095,6 +2095,77 @@ def api_videos():
  
     return jsonify({'videos': simples, 'static_url': STATIC_SERVER_URL})
 
+# ==================== API: DETALHE DE VÍDEO (usado pelo app Roku) ====================
+@app.route('/api/video/<video_id>')
+def api_video_detail(video_id):
+    video = get_video(video_id)
+    if not video:
+        return jsonify({'error': 'vídeo não encontrado'}), 404
+
+    username = session.get('username')
+    max_class = '18'
+    if username:
+        path = get_user_config_path(username)
+        if os.path.exists(path):
+            with open(path, 'r', encoding='utf-8') as f:
+                configs = json.load(f)
+            max_class = configs.get('classificacao_maxima', '18')
+
+    if not pode_assistir_video(video.get('classificacao', 'L'), max_class):
+        return jsonify({'error': 'conteúdo bloqueado pela classificação indicativa'}), 403
+
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT count FROM likes WHERE video_id = ?", (str(video_id),))
+    r = c.fetchone()
+    conn.close()
+    likes_count = r['count'] if r else 0
+
+    canal_username = video.get('channel')
+    canal_display_name = canal_username or ''
+    canal_foto = '/static/user.png'
+    if canal_username:
+        ch = get_channel_info(canal_username)
+        if ch:
+            canal_display_name = ch.get('display_name', canal_username)
+            foto_path = ch.get('foto_path')
+            if foto_path and os.path.exists(foto_path):
+                canal_foto = f'/channels/@{canal_username}/foto.jpg'
+
+    qualidades = []
+    for campo, label in (
+        ('filename', 'Original'),
+        ('filename_480p', '480p'),
+        ('filename_360p', '360p'),
+        ('filename_144p', '144p'),
+    ):
+        nome_arquivo = video.get(campo)
+        if nome_arquivo:
+            qualidades.append({
+                'label': label,
+                'url': f"{STATIC_SERVER_URL}uploads/{nome_arquivo}",
+            })
+
+    stream_url = qualidades[0]['url'] if qualidades else ''
+
+    return jsonify({
+        'id': video['id'],
+        'title': video.get('title', ''),
+        'description': video.get('description', ''),
+        'views': video.get('views', 0),
+        'channel': canal_username,
+        'channel_display_name': canal_display_name,
+        'channel_photo': canal_foto,
+        'thumb': f"{STATIC_SERVER_URL}uploads/{video.get('thumb', '')}" if video.get('thumb') else '',
+        'likes': likes_count,
+        'is_360': bool(video.get('is_360')),
+        'stream_url': stream_url,
+        'qualities': qualidades,
+        'subtitle_url': (f"{STATIC_SERVER_URL}uploads/subtitles/{video['subtitle_file']}"
+                          if video.get('subtitle_file') else ''),
+        'static_url': STATIC_SERVER_URL,
+    })
+
 # ==================== EDITAR VÍDEO ====================
 @app.route('/editar-video/<video_id>', methods=['GET', 'POST'])
 def editar_video(video_id):

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="HomeView" extends="Group">
+    <interface>
+        <!-- id do vídeo escolhido pelo usuário; observado pela MainScene -->
+        <field id="selectedVideoId" type="string" alwaysNotify="true" />
+    </interface>
+
+    <children>
+        <Rectangle id="bg" width="1920" height="1080" color="0x0F0F14FF" />
+
+        <Poster
+            id="logo"
+            translation="[64, 40]"
+            width="56"
+            height="56"
+            uri="pkg:/images/icon_side_fhd.png"
+        />
+        <Label
+            id="headerLabel"
+            text="Clippy Videos"
+            translation="[136, 54]"
+            font="font:LargeSystemFont"
+            color="0xFFFFFFFF"
+        />
+
+        <Label
+            id="loadingLabel"
+            text="Carregando vídeos..."
+            translation="[64, 500]"
+            font="font:LargeSystemFont"
+            color="0xCCCCCCFF"
+            visible="false"
+        />
+
+        <Label
+            id="errorLabel"
+            translation="[64, 460]"
+            width="1792"
+            wrap="true"
+            font="font:MediumSystemFont"
+            color="0xFF6B6BFF"
+            visible="false"
+        />
+
+        <RowList
+            id="rowList"
+            translation="[0, 150]"
+            itemComponentName="VideoItem"
+            rowItemSize="[[360, 230]]"
+            rowItemSpacing="[[24, 0]]"
+            rowHeights="[280, 280]"
+            rowSpacings="[0, 48]"
+            rowLabelOffset="[[64, 10]]"
+            showRowLabel="[true, true]"
+            numRows="2"
+            focusXOffset="[64, 64]"
+            vertFocusAnimationStyle="floatingFocus"
+            visible="false"
+        />
+    </children>
+
+    <script type="text/brightscript" uri="pkg:/components/HomeView.brs" />
+</component>

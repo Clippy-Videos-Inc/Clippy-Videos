@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="VideoItem" extends="Group">
+    <interface>
+        <field id="itemContent" type="node" onChange="OnContentChange" />
+        <field id="focusPercent" type="float" onChange="OnFocusChange" />
+        <field id="width" type="float" value="360" />
+        <field id="height" type="float" value="230" />
+    </interface>
+
+    <children>
+        <Rectangle
+            id="focusRing"
+            translation="[-6, -6]"
+            width="372"
+            height="182"
+            color="0x00000000"
+        />
+        <Poster
+            id="poster"
+            width="360"
+            height="170"
+            loadDisplayMode="scaleToZoom"
+        />
+        <Label
+            id="titleLabel"
+            translation="[0, 178]"
+            width="360"
+            height="30"
+            font="font:MediumBoldSystemFont"
+            color="0xFFFFFFFF"
+            ellipsizeOnBoundary="true"
+            numLines="1"
+        />
+        <Label
+            id="metaLabel"
+            translation="[0, 204]"
+            width="360"
+            height="24"
+            font="font:SmallSystemFont"
+            color="0x9A9AA5FF"
+            ellipsizeOnBoundary="true"
+            numLines="1"
+        />
+    </children>
+
+    <script type="text/brightscript" uri="pkg:/components/VideoItem.brs" />
+</component>
