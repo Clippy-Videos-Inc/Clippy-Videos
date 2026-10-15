@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="SearchView" extends="Group">
+    <interface>
+        <field id="selectedVideoId" type="string" alwaysNotify="true" />
+        <field id="selectedChannel" type="string" alwaysNotify="true" />
+        <function name="FocusKeyboard" />
+        <function name="ResetSearch" />
+    </interface>
+
+    <children>
+        <Keyboard
+            id="keyboard"
+            translation="[64, 160]"
+        />
+
+        <Label
+            id="hintLabel"
+            text="Digite pra buscar vídeos e canais. Pressione BAIXO pra ver os resultados."
+            translation="[760, 160]"
+            width="1100"
+            wrap="true"
+            font="font:MediumSystemFont"
+            color="0x9A9AA5FF"
+        />
+
+        <BusySpinner
+            id="spinner"
+            translation="[1300, 300]"
+            visible="false"
+        />
+
+        <Label
+            id="errorLabel"
+            translation="[760, 160]"
+            width="1100"
+            wrap="true"
+            font="font:MediumSystemFont"
+            color="0xFF6B6BFF"
+            visible="false"
+        />
+
+        <MarkupGrid
+            id="resultsGrid"
+            translation="[760, 160]"
+            itemComponentName="VideoItem"
+            itemSize="[360, 230]"
+            itemSpacing="[24, 32]"
+            numColumns="3"
+            numRows="3"
+            visible="false"
+        />
+    </children>
+
+    <script type="text/brightscript" uri="pkg:/source/Utils.brs" />
+    <script type="text/brightscript" uri="pkg:/components/SearchView.brs" />
+</component>

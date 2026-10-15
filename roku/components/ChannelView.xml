@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="ChannelView" extends="Group">
+    <interface>
+        <field id="username" type="string" onChange="OnUsernameChange" />
+        <field id="selectedVideoId" type="string" alwaysNotify="true" />
+        <function name="FocusGrid" />
+    </interface>
+
+    <children>
+        <Poster
+            id="channelPhoto"
+            translation="[64, 160]"
+            width="120"
+            height="120"
+            uri="pkg:/images/icon_side_fhd.png"
+        />
+        <Label
+            id="displayNameLabel"
+            translation="[210, 170]"
+            width="1600"
+            font="font:LargeSystemFont"
+            color="0xFFFFFFFF"
+        />
+        <Label
+            id="handleLabel"
+            translation="[210, 216]"
+            width="1600"
+            font="font:MediumSystemFont"
+            color="0x9A9AA5FF"
+        />
+        <Label
+            id="bioLabel"
+            translation="[210, 252]"
+            width="1600"
+            wrap="true"
+            numLines="2"
+            font="font:SmallSystemFont"
+            color="0x9A9AA5FF"
+        />
+
+        <BusySpinner
+            id="spinner"
+            translation="[928, 460]"
+            visible="false"
+        />
+        <Label
+            id="errorLabel"
+            translation="[64, 460]"
+            width="1792"
+            wrap="true"
+            font="font:MediumSystemFont"
+            color="0xFF6B6BFF"
+            visible="false"
+        />
+
+        <MarkupGrid
+            id="videosGrid"
+            translation="[64, 330]"
+            itemComponentName="VideoItem"
+            itemSize="[360, 230]"
+            itemSpacing="[24, 32]"
+            numColumns="5"
+            numRows="2"
+            visible="false"
+        />
+    </children>
+
+    <script type="text/brightscript" uri="pkg:/source/Utils.brs" />
+    <script type="text/brightscript" uri="pkg:/components/ChannelView.brs" />
+</component>

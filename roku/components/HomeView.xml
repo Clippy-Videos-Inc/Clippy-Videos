@@ -3,38 +3,21 @@
     <interface>
         <!-- id do vídeo escolhido pelo usuário; observado pela MainScene -->
         <field id="selectedVideoId" type="string" alwaysNotify="true" />
+        <!-- username escolhido via botão OPTIONS num card; observado pela MainScene -->
+        <field id="selectedChannel" type="string" alwaysNotify="true" />
+        <function name="FocusGrid" />
     </interface>
 
     <children>
-        <Rectangle id="bg" width="1920" height="1080" color="0x0F0F14FF" />
-
-        <Poster
-            id="logo"
-            translation="[64, 40]"
-            width="56"
-            height="56"
-            uri="pkg:/images/icon_side_fhd.png"
-        />
-        <Label
-            id="headerLabel"
-            text="Clippy Videos"
-            translation="[136, 54]"
-            font="font:LargeSystemFont"
-            color="0xFFFFFFFF"
-        />
-
-        <Label
-            id="loadingLabel"
-            text="Carregando vídeos..."
-            translation="[64, 500]"
-            font="font:LargeSystemFont"
-            color="0xCCCCCCFF"
+        <BusySpinner
+            id="spinner"
+            translation="[928, 460]"
             visible="false"
         />
 
         <Label
             id="errorLabel"
-            translation="[64, 460]"
+            translation="[64, 300]"
             width="1792"
             wrap="true"
             font="font:MediumSystemFont"
@@ -59,5 +42,6 @@
         />
     </children>
 
+    <script type="text/brightscript" uri="pkg:/source/Utils.brs" />
     <script type="text/brightscript" uri="pkg:/components/HomeView.brs" />
 </component>

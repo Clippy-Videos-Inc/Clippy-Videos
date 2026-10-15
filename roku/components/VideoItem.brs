@@ -3,23 +3,8 @@ sub Init()
     m.focusRing = m.top.FindNode("focusRing")
     m.titleLabel = m.top.FindNode("titleLabel")
     m.metaLabel = m.top.FindNode("metaLabel")
+    m.top.SetFields({ scaleRotateCenter: [180, 115] })
 end sub
-
-function RoundTo1Decimal(x as Float) as String
-    rounded = Int(x * 10 + 0.5) / 10
-    return rounded.ToStr()
-end function
-
-function FormatViews(n as Dynamic) as String
-    if n = invalid then return ""
-    num = Val(n.ToStr())
-    if num >= 1000000
-        return RoundTo1Decimal(num / 1000000) + "mi visualizações"
-    else if num >= 1000
-        return RoundTo1Decimal(num / 1000) + "mil visualizações"
-    end if
-    return num.ToStr() + " visualizações"
-end function
 
 sub OnContentChange()
     content = m.top.itemContent
@@ -33,12 +18,16 @@ sub OnContentChange()
 
     canal = content.channelName
     if canal = invalid then canal = ""
-    views = FormatViews(content.viewsCount)
 
-    if canal <> ""
-        m.metaLabel.text = "@" + canal + "  •  " + views
+    if content.isChannelResult = true
+        m.metaLabel.text = "Canal  •  @" + canal
     else
-        m.metaLabel.text = views
+        views = FormatViews(content.viewsCount)
+        if canal <> ""
+            m.metaLabel.text = "@" + canal + "  •  " + views
+        else
+            m.metaLabel.text = views
+        end if
     end if
 end sub
 
@@ -47,8 +36,10 @@ sub OnFocusChange()
     if pct > 0.5
         m.focusRing.color = "0x7C3AEDFF"
         m.titleLabel.color = "0xFFFFFFFF"
+        m.top.scale = [1.05, 1.05]
     else
         m.focusRing.color = "0x00000000"
         m.titleLabel.color = "0xE5E5EAFF"
+        m.top.scale = [1.0, 1.0]
     end if
 end sub

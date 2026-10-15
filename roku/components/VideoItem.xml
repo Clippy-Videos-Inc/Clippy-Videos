@@ -43,5 +43,6 @@
         />
     </children>
 
+    <script type="text/brightscript" uri="pkg:/source/Utils.brs" />
     <script type="text/brightscript" uri="pkg:/components/VideoItem.brs" />
 </component>

@@ -1,9 +1,11 @@
 sub Init()
     m.rowList = m.top.FindNode("rowList")
-    m.loadingLabel = m.top.FindNode("loadingLabel")
+    m.spinner = m.top.FindNode("spinner")
     m.errorLabel = m.top.FindNode("errorLabel")
 
     m.rowList.ObserveField("rowItemSelected", "OnItemSelected")
+    m.rowList.ObserveField("rowItemFocused", "OnItemFocused")
+    m.focusedIndices = [0, 0]
 
     m.rowsData = {
         emAlta: invalid
@@ -14,7 +16,7 @@ sub Init()
 end sub
 
 sub LoadFeeds()
-    m.loadingLabel.visible = true
+    m.spinner.visible = true
     m.errorLabel.visible = false
 
     m.taskEmAlta = CreateObject("roSGNode", "FetchVideosTask")
@@ -31,23 +33,6 @@ sub LoadFeeds()
     m.taskRecentes.ObserveField("errorMessage", "OnFetchError")
     m.taskRecentes.control = "RUN"
 end sub
-
-function MakeVideoContentNode(video as Object, staticUrl as String) as Object
-    item = CreateObject("roSGNode", "ContentNode")
-    item.Title = video.title
-    thumbUri = ""
-    if video.thumb <> invalid and video.thumb <> ""
-        thumbUri = staticUrl + "uploads/" + video.thumb
-    end if
-    item.HDPosterUrl = thumbUri
-    item.SDPosterUrl = thumbUri
-    item.AddFields({
-        videoId: video.id.ToStr()
-        channelName: video.channel
-        viewsCount: video.views
-    })
-    return item
-end function
 
 sub OnEmAltaResult(event as Object)
     data = event.GetData()
@@ -66,7 +51,7 @@ end sub
 sub OnFetchError(event as Object)
     msg = event.GetData()
     if msg = invalid or msg = "" then return
-    m.loadingLabel.visible = false
+    m.spinner.visible = false
     m.errorLabel.text = msg
     m.errorLabel.visible = true
 end sub
@@ -88,22 +73,39 @@ sub TryRenderRows()
         rowRecentes.AppendChild(MakeVideoContentNode(v, m.rowsData.recentes.static_url))
     end for
 
+    if rowEmAlta.GetChildCount() = 0 and rowRecentes.GetChildCount() = 0
+        m.errorLabel.text = "Nenhum vídeo encontrado ainda."
+        m.errorLabel.visible = true
+        m.spinner.visible = false
+        return
+    end if
+
     m.rowList.content = root
-    m.loadingLabel.visible = false
+    m.spinner.visible = false
     m.errorLabel.visible = false
     m.rowList.visible = true
-    m.rowList.SetFocus(true)
 end sub
+
+sub OnItemFocused(event as Object)
+    indices = event.GetData()
+    if indices = invalid then return
+    m.focusedIndices = indices
+end sub
+
+function GetFocusedContent() as Dynamic
+    if m.rowList.content = invalid then return invalid
+    rowContent = m.rowList.content.GetChild(m.focusedIndices[0])
+    if rowContent = invalid then return invalid
+    return rowContent.GetChild(m.focusedIndices[1])
+end function
 
 sub OnItemSelected(event as Object)
     indices = event.GetData()
     if indices = invalid then return
-    rowIndex = indices[0]
-    itemIndex = indices[1]
 
-    rowContent = m.rowList.content.GetChild(rowIndex)
+    rowContent = m.rowList.content.GetChild(indices[0])
     if rowContent = invalid then return
-    itemContent = rowContent.GetChild(itemIndex)
+    itemContent = rowContent.GetChild(indices[1])
     if itemContent = invalid then return
 
     videoId = itemContent.videoId
@@ -111,3 +113,22 @@ sub OnItemSelected(event as Object)
 
     m.top.selectedVideoId = videoId
 end sub
+
+' Dá foco à grade (chamado pela MainScene ao voltar de outra tela).
+sub FocusGrid()
+    m.rowList.SetFocus(true)
+end sub
+
+function OnKeyEvent(key as String, press as Boolean) as Boolean
+    if not press then return false
+
+    if key = "options"
+        content = GetFocusedContent()
+        if content <> invalid and content.channelName <> invalid and content.channelName <> ""
+            m.top.selectedChannel = content.channelName
+            return true
+        end if
+    end if
+
+    return false
+end function

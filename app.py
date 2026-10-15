@@ -2047,6 +2047,30 @@ def conta():
                            channel=channel,
                            studio_link=studio_link)
 
+def _max_classificacao_sessao():
+    """Classificação indicativa máxima permitida pro usuário da sessão atual
+    (ou '18' se não houver login / config salva)."""
+    max_class = '18'
+    username = session.get('username')
+    if username:
+        path = get_user_config_path(username)
+        if os.path.exists(path):
+            with open(path, 'r', encoding='utf-8') as f:
+                configs = json.load(f)
+            max_class = configs.get('classificacao_maxima', '18')
+    return max_class
+
+
+def _video_simples(v):
+    return {
+        'id':      v['id'],
+        'title':   v['title'],
+        'views':   v.get('views', 0),
+        'channel': v.get('channel'),
+        'thumb':   v.get('thumb', ''),
+    }
+
+
 @app.route('/api/videos')
 def api_videos():
     page     = int(request.args.get('page', 1))
@@ -2163,6 +2187,92 @@ def api_video_detail(video_id):
         'qualities': qualidades,
         'subtitle_url': (f"{STATIC_SERVER_URL}uploads/subtitles/{video['subtitle_file']}"
                           if video.get('subtitle_file') else ''),
+        'static_url': STATIC_SERVER_URL,
+    })
+
+# ==================== API: BUSCA (usado pelo app Roku) ====================
+@app.route('/api/buscar')
+def api_buscar():
+    query = request.args.get('q', '').strip().lower()
+    max_class = _max_classificacao_sessao()
+
+    all_videos = load_videos()
+    videos_permitidos = [
+        v for v in all_videos
+        if pode_assistir_video(v.get('classificacao', 'L'), max_class)
+    ]
+
+    if query:
+        videos_resultado = [
+            v for v in videos_permitidos
+            if query in (v.get('title') or '').lower()
+            or query in (v.get('description') or '').lower()
+        ]
+    else:
+        videos_resultado = []
+
+    canais_resultado = []
+    if query:
+        conn = get_db()
+        c = conn.cursor()
+        c.execute("SELECT username, display_name, bio FROM channels")
+        for row in c.fetchall():
+            display_name = row['display_name'] or ''
+            bio = row['bio'] or ''
+            if query in (row['username'] or '').lower() or query in display_name.lower() or query in bio.lower():
+                canais_resultado.append({
+                    'username': row['username'],
+                    'display_name': display_name,
+                })
+        conn.close()
+
+    return jsonify({
+        'query': query,
+        'videos': [_video_simples(v) for v in videos_resultado[:60]],
+        'canais': canais_resultado[:20],
+        'static_url': STATIC_SERVER_URL,
+    })
+
+# ==================== API: CANAL (usado pelo app Roku) ====================
+@app.route('/api/channel/<username>')
+def api_channel(username):
+    channel_path = os.path.join('channels', f'@{username}')
+    info_path = os.path.join(channel_path, 'info.txt')
+
+    display_name = username
+    bio = ''
+    if os.path.exists(info_path):
+        with open(info_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            if lines:
+                display_name = lines[0].strip()
+            if len(lines) > 1:
+                bio = lines[1].strip()
+
+    max_class = _max_classificacao_sessao()
+    videos = [
+        v for v in load_videos()
+        if v.get('channel') == username and pode_assistir_video(v.get('classificacao', 'L'), max_class)
+    ]
+
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) as n FROM subscribers WHERE channel = ?", (username,))
+    row = c.fetchone()
+    conn.close()
+    subscribers = row['n'] if row else 0
+
+    foto_url = ''
+    if os.path.exists(os.path.join(channel_path, 'foto.jpg')):
+        foto_url = f'/channels/@{username}/foto.jpg'
+
+    return jsonify({
+        'username': username,
+        'display_name': display_name,
+        'bio': bio,
+        'subscribers': subscribers,
+        'foto_url': foto_url,
+        'videos': [_video_simples(v) for v in videos],
         'static_url': STATIC_SERVER_URL,
     })
 

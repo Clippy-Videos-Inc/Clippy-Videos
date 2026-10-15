@@ -28,3 +28,13 @@ end function
 function ApiVideoDetailUrl(videoId as String) as String
     return ApiBaseUrl() + "/api/video/" + videoId
 end function
+
+function ApiBuscarUrl(query as String) as String
+    xfer = CreateObject("roUrlTransfer")
+    return ApiBaseUrl() + "/api/buscar?q=" + xfer.Escape(query)
+end function
+
+function ApiChannelUrl(username as String) as String
+    xfer = CreateObject("roUrlTransfer")
+    return ApiBaseUrl() + "/api/channel/" + xfer.Escape(username)
+end function
