@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="TopBar" extends="Group">
+    <interface>
+        <!-- "home" ou "search"; MainScene seta isso ao trocar de tela -->
+        <field id="activeTab" type="string" value="home" onChange="OnActiveTabChange" />
+        <!-- MainScene observa isso: disparado quando o usuário confirma uma aba -->
+        <field id="confirmedTab" type="string" alwaysNotify="true" />
+        <function name="FocusBar" />
+    </interface>
+
+    <children>
+        <Rectangle id="bg" width="1920" height="120" color="0x16161DFF" />
+
+        <Poster
+            id="logo"
+            translation="[64, 32]"
+            width="56"
+            height="56"
+            uri="pkg:/images/icon_side_fhd.png"
+        />
+        <Label
+            id="brandLabel"
+            text="Clippy Videos"
+            translation="[136, 46]"
+            font="font:LargeSystemFont"
+            color="0xFFFFFFFF"
+        />
+
+        <Label
+            id="tabHomeLabel"
+            text="Início"
+            translation="[520, 46]"
+            font="font:MediumBoldSystemFont"
+        />
+        <Label
+            id="tabSearchLabel"
+            text="Busca"
+            translation="[680, 46]"
+            font="font:MediumBoldSystemFont"
+        />
+    </children>
+
+    <script type="text/brightscript" uri="pkg:/components/TopBar.brs" />
+</component>

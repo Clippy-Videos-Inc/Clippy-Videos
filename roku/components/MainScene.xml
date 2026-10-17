@@ -5,7 +5,10 @@
 
     <children>
         <HomeView id="homeView" visible="true" />
+        <SearchView id="searchView" visible="false" />
+        <ChannelView id="channelView" visible="false" />
         <PlayerView id="playerView" visible="false" />
+        <TopBar id="topBar" />
     </children>
 
     <script type="text/brightscript" uri="pkg:/components/MainScene.brs" />

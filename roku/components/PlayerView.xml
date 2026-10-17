@@ -2,8 +2,9 @@
 <component name="PlayerView" extends="Group">
     <interface>
         <field id="videoId" type="string" onChange="OnVideoIdChange" />
-        <!-- MainScene observa este campo para saber quando voltar pra Home -->
+        <!-- MainScene observa estes campos -->
         <field id="closeRequested" type="boolean" alwaysNotify="true" value="false" />
+        <field id="selectedChannel" type="string" alwaysNotify="true" />
         <function name="Reset" />
     </interface>
 
@@ -17,12 +18,9 @@
             visible="false"
         />
 
-        <Label
-            id="loadingLabel"
-            text="Carregando..."
-            translation="[64, 980]"
-            font="font:LargeSystemFont"
-            color="0xCCCCCCFF"
+        <BusySpinner
+            id="spinner"
+            translation="[928, 460]"
             visible="false"
         />
 
@@ -37,12 +35,50 @@
             visible="false"
         />
 
+        <Rectangle
+            id="titleBar"
+            translation="[0, 0]"
+            width="1920"
+            height="170"
+            color="0x000000AA"
+            visible="false"
+        />
         <Label
             id="titleOverlay"
-            translation="[64, 60]"
-            width="1792"
+            translation="[64, 56]"
+            width="1600"
             font="font:LargeSystemFont"
             color="0xFFFFFFFF"
+            visible="false"
+        />
+        <Label
+            id="badge360"
+            text="360°"
+            translation="[1780, 60]"
+            font="font:MediumBoldSystemFont"
+            color="0x7C3AEDFF"
+            visible="false"
+        />
+        <Button
+            id="channelButton"
+            translation="[64, 108]"
+            minWidth="400"
+            visible="false"
+        />
+
+        <Label
+            id="toastLabel"
+            translation="[64, 980]"
+            font="font:MediumBoldSystemFont"
+            color="0xFFFFFFFF"
+            visible="false"
+        />
+        <Label
+            id="hintLabel"
+            text="BAIXO: ver canal   •   OPÇÕES: trocar qualidade"
+            translation="[64, 1030]"
+            font="font:SmallSystemFont"
+            color="0x9A9AA5FF"
             visible="false"
         />
     </children>

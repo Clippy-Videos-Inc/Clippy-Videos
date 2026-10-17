@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="FetchSearchTask" extends="Task">
+    <interface>
+        <field id="query" type="string" value="" />
+        <field id="result" type="assocarray" alwaysNotify="true" />
+        <field id="errorMessage" type="string" alwaysNotify="true" />
+    </interface>
+    <script type="text/brightscript" uri="pkg:/source/Config.brs" />
+    <script type="text/brightscript" uri="pkg:/source/Net.brs" />
+    <script type="text/brightscript" uri="pkg:/components/FetchSearchTask.brs" />
+</component>
