@@ -17,6 +17,8 @@ sub FocusGrid()
 end sub
 
 sub OnUsernameChange()
+    if m.displayNameLabel = invalid then return ' onChange antes do Init()
+
     username = m.top.username
     if username = invalid or username = "" then return
 

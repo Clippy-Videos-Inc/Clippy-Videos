@@ -22,6 +22,8 @@ sub Init()
 end sub
 
 sub OnVideoIdChange()
+    if m.spinner = invalid then return ' onChange antes do Init()
+
     videoId = m.top.videoId
     if videoId = invalid or videoId = "" then return
 

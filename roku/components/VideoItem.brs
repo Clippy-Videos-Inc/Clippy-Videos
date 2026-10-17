@@ -7,6 +7,8 @@ sub Init()
 end sub
 
 sub OnContentChange()
+    if m.poster = invalid then return ' onChange antes do Init()
+
     content = m.top.itemContent
     if content = invalid then return
 
@@ -32,6 +34,8 @@ sub OnContentChange()
 end sub
 
 sub OnFocusChange()
+    if m.focusRing = invalid then return ' onChange antes do Init()
+
     pct = m.top.focusPercent
     if pct > 0.5
         m.focusRing.color = "0x7C3AEDFF"

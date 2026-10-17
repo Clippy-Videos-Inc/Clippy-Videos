@@ -14,6 +14,10 @@ sub FocusBar()
 end sub
 
 sub OnActiveTabChange()
+    ' guarda contra o onChange disparar antes do Init() rodar (pode
+    ' acontecer se o nó pai setar o campo logo na criação do componente)
+    if m.tabs = invalid then return
+
     tabIndex = m.tabs.Indexof(m.top.activeTab)
     if tabIndex >= 0 then m.highlightIndex = tabIndex
     RenderHighlight()
