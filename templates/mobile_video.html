@@ -1,1 +1,303 @@
-erro 404
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>{{ video.title }} - Clippy Mobile</title>
+  <style>
+    :root { --primary: #ff2d8d; --neon: #6a6aff; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, #1a1a2e 0%, #2c2c4c 100%);
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding-bottom: 30px;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: linear-gradient(to bottom, #3a3a5c, #25253d);
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+      border-bottom: 2px solid var(--neon);
+    }
+    .back-btn { background: none; border: none; color: white; font-size: 24px; padding: 0; flex-shrink: 0; }
+    header h1 {
+      font-size: 15px;
+      margin: 0;
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* --- PLAYER (mesmo player do desktop, via iframe) --- */
+    .player-wrap {
+      width: 100%;
+      aspect-ratio: 16/9;
+      background: #000;
+    }
+    .player-wrap iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .video-meta { padding: 14px; }
+    .video-title { font-size: 17px; font-weight: 800; line-height: 1.3; margin-bottom: 6px; }
+    .badge-360 {
+      display: inline-block;
+      background: linear-gradient(90deg, #00c9a7, #4ecdc4);
+      color: #06231f;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-bottom: 8px;
+    }
+    .video-stats { font-size: 12.5px; color: #c0c0ff; margin-bottom: 12px; }
+
+    .actions-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .action-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(145deg, #3a3a5c, #25253d);
+      border: 1px solid var(--neon);
+      color: #fff;
+      text-decoration: none;
+      padding: 9px 16px;
+      border-radius: 22px;
+      font-size: 13.5px;
+      font-weight: 600;
+    }
+    .action-chip.active { background: linear-gradient(#6a6aff, #9d9dff); }
+
+    /* --- CANAL --- */
+    .channel-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .channel-link { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; min-width: 0; }
+    .channel-avatar { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 2px solid var(--neon); flex-shrink: 0; }
+    .channel-name { font-size: 14.5px; font-weight: 700; }
+    .channel-subs { font-size: 12px; color: #a0a0cc; }
+    .subscribe-btn {
+      background: linear-gradient(var(--primary), #ff6ab3);
+      color: white;
+      border: none;
+      padding: 9px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .subscribe-btn.subscribed { background: rgba(255,255,255,0.12); }
+
+    .description-box {
+      margin: 14px;
+      padding: 12px 14px;
+      background: rgba(0,0,0,0.35);
+      border-radius: 10px;
+      font-size: 13.5px;
+      line-height: 1.5;
+      color: #ddd;
+      white-space: pre-wrap;
+    }
+
+    /* --- COMENTÁRIOS --- */
+    .comments-section { padding: 14px; }
+    .comments-section h3 { font-size: 15px; margin-bottom: 12px; }
+    .comment-form textarea {
+      width: 100%;
+      background: #1f1f38;
+      border: 2px solid #5e5eff;
+      border-radius: 10px;
+      color: white;
+      padding: 10px;
+      font-size: 14px;
+      min-height: 70px;
+      resize: vertical;
+    }
+    .comment-form button {
+      margin-top: 8px;
+      background: linear-gradient(#6a6aff, #9d9dff);
+      color: white;
+      border: none;
+      padding: 9px 20px;
+      border-radius: 20px;
+      font-weight: 700;
+      font-size: 13.5px;
+    }
+    .comment-item {
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-top: 10px;
+      font-size: 13.5px;
+    }
+    .comment-item strong { color: #c0c0ff; }
+    .comment-item p { margin: 4px 0 0; line-height: 1.4; }
+
+    /* --- RELACIONADOS --- */
+    .related-section { padding: 6px 14px 14px; }
+    .related-section h3 { font-size: 15px; margin: 10px 0 12px; }
+    .video-card {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      background: linear-gradient(145deg, #3a3a5c, #25253d);
+      border-radius: 12px;
+      overflow: hidden;
+      text-decoration: none;
+      color: inherit;
+      border: 1px solid #5e5eff;
+      margin-bottom: 12px;
+    }
+    .video-card .thumb {
+      width: 130px;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: #000;
+    }
+    .video-card .info { padding: 8px 10px 8px 0; min-width: 0; }
+    .video-card .title {
+      font-size: 13.5px;
+      font-weight: 700;
+      line-height: 1.25;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 4px;
+    }
+    .video-card .meta { font-size: 11.5px; color: #b0b0dd; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <button class="back-btn" onclick="history.back()">‹</button>
+    <h1>{{ video.title }}</h1>
+  </header>
+
+  <!-- Mesmo player usado no desktop (templates/watch.html), incluindo
+       suporte a 360°, capítulos, legendas e cards -- não existe uma
+       versão "mobile" separada do player, é o mesmo iframe. -->
+  <div class="player-wrap">
+    <iframe src="{{ url_for('watch', video_id=video.id) }}" allowfullscreen></iframe>
+  </div>
+
+  <div class="video-meta">
+    {% if video.is_360 %}<span class="badge-360">🌐 360°</span>{% endif %}
+    <div class="video-title">{{ video.title }}</div>
+    <div class="video-stats">{{ video.views }} visualizações{% if video.idade %} • {{ video.idade }}{% endif %}</div>
+
+    <div class="actions-row">
+      <button class="action-chip" id="likeBtn">👍 <span id="likeCount">{{ likes_count }}</span></button>
+      <button class="action-chip" id="dislikeBtn">👎 <span id="dislikeCount">{{ dislikes_count }}</span></button>
+      {% if session.get('username') %}
+      <a class="action-chip" href="/download/{{ video.id }}">📂 Baixar</a>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if canal_username %}
+  <div class="channel-row">
+    <a href="/@{{ canal_username }}" class="channel-link">
+      <img src="/foto_canal/{{ canal_username }}" class="channel-avatar" onerror="this.src='/static/user.png'">
+      <div>
+        <div class="channel-name">{{ canal_display_name }}</div>
+        <div class="channel-subs">{{ subscribers }} inscritos</div>
+      </div>
+    </a>
+    {% if session.get('username') and session['username'] != canal_username %}
+      {% if ja_inscrito %}
+      <form action="/unsubscribe/{{ canal_username }}" method="POST">
+        <button type="submit" class="subscribe-btn subscribed">Inscrito</button>
+      </form>
+      {% else %}
+      <form action="/inscrever/{{ canal_username }}" method="POST">
+        <button type="submit" class="subscribe-btn">Inscrever-se</button>
+      </form>
+      {% endif %}
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if video.description %}
+  <div class="description-box">{{ video.description }}</div>
+  {% endif %}
+
+  <div class="comments-section">
+    <h3>💬 Comentários</h3>
+    {% if session.get('username') %}
+    <form class="comment-form" action="/comentar/{{ video.id }}" method="POST">
+      <textarea name="comentario" placeholder="Comente algo..." required></textarea>
+      <button type="submit">Publicar</button>
+    </form>
+    {% else %}
+    <p style="font-size:13px; color:#999;"><a href="/login" style="color:#9d9dff;">Faça login</a> para comentar.</p>
+    {% endif %}
+
+    {% for linha in comentarios %}
+      {% set partes = linha.split('|', 1) %}
+      {% if partes|length == 2 %}
+      <div class="comment-item">
+        <strong>@{{ partes[0] }}</strong>
+        <p>{{ partes[1] }}</p>
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="related-section">
+    <h3>A seguir</h3>
+    {% for v in relacionados[:20] %}
+    <a href="/lang=mobile/video/{{ v.id }}" class="video-card">
+      <img class="thumb" src="{{ static_url }}uploads/{{ v.thumb }}" alt="{{ v.title }}">
+      <div class="info">
+        <div class="title">{{ v.title }}</div>
+        <div class="meta">{{ v.views }} views{% if v.is_360 %} • 🌐 360°{% endif %}</div>
+        <div class="meta">@{{ v.channel or 'sem canal' }}</div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+
+  <script>
+    function react(tipo) {
+      fetch('/react_video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: "{{ video.id }}", reaction: tipo })
+      })
+      .then(r => {
+        if (r.status === 403) { alert('Faça login para avaliar vídeos'); return null; }
+        return r.json();
+      })
+      .then(data => {
+        if (!data) return;
+        document.getElementById('likeCount').innerText = data.likes;
+        document.getElementById('dislikeCount').innerText = data.dislikes;
+      });
+    }
+    document.getElementById('likeBtn').addEventListener('click', () => react(1));
+    document.getElementById('dislikeBtn').addEventListener('click', () => react(-1));
+  </script>
+
+</body>
+</html>

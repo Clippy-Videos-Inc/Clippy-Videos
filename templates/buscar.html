@@ -109,6 +109,21 @@
     <h1>🔍 {{ t.buscar.buscar_videos }}</h1>
     <input type="text" id="searchInput" placeholder="{{ t.buscar.input }}">
 
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:16px;">
+        <a href="/buscar{% if query %}?q={{ query }}{% endif %}"
+           style="font-size:0.85rem; padding:6px 14px; border-radius:20px; text-decoration:none;
+                  color: {{ '#fff' if not categoria_atual else '#8888c0' }};
+                  background: {{ 'linear-gradient(90deg,#6a6aff,#9d9dff)' if not categoria_atual else 'rgba(106,106,255,0.12)' }};
+                  border: 1px solid #5555cc;">Todas</a>
+        {% for cat in categorias_disponiveis %}
+        <a href="/buscar?categoria={{ cat }}{% if query %}&q={{ query }}{% endif %}"
+           style="font-size:0.85rem; padding:6px 14px; border-radius:20px; text-decoration:none;
+                  color: {{ '#fff' if categoria_atual == cat else '#8888c0' }};
+                  background: {{ 'linear-gradient(90deg,#6a6aff,#9d9dff)' if categoria_atual == cat else 'rgba(106,106,255,0.12)' }};
+                  border: 1px solid #5555cc;">{{ cat }}</a>
+        {% endfor %}
+    </div>
+
     <div class="container">
         <h2 style="margin-top:40px; color:#ddd;">📺 {{ t.buscar.videos }}</h2>
         <div class="grid" id="videoGrid">

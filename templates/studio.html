@@ -230,7 +230,7 @@
             <li><a href="https://192.168.0.150:443"><img src="{{ static_url }}home.png" width="28"><span>Início</span></a></li>
             <li><a href="#uploadModal" onclick="openModal()"><img src="{{ static_url }}channels.png" width="28"><span>Enviar Vídeo</span></a></li>
             <li><a href="{{ url_for('gerenciar_collabs', username=username) }}"><img src="{{ static_url }}users.png" width="28"><span>Colabs</span></a></li>
-            <li><a href="/live"><img src="{{ static_url }}w.png" width="28"><span>Criar Live</span></a></li>
+            <li><a href="https://192.168.0.150:443/live"><img src="{{ static_url }}w.png" width="28"><span>Criar Live</span></a></li>
             <li><a href="/studio/{{ username }}/posts"><img src="{{ static_url }}posts.png" width="28"><span>Posts</span></a></li>
             <li><a href="{{ url_for('config_canal', username=username) }}"><img src="{{ static_url }}icons/settings.png" width="28"><span>Configurações</span></a></li>
         </ul>
@@ -327,6 +327,14 @@
         <h3>Etapa 2 – Informações + Legendas + Capítulos</h3>
         <input type="text" name="title" placeholder="Título do vídeo" required>
         <textarea name="description" placeholder="Descrição completa" rows="3" required></textarea>
+
+        <label for="categoriaSelect">Categoria</label>
+        <select name="categoria" id="categoriaSelect">
+          <option value="">Sem categoria</option>
+          {% for cat in categorias_disponiveis %}
+          <option value="{{ cat }}">{{ cat }}</option>
+          {% endfor %}
+        </select>
 
         <div class="checkbox-row">
           <input type="checkbox" name="is_360" value="1" id="is360Check">

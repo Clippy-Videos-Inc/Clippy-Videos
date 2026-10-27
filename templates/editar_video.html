@@ -137,6 +137,15 @@
         <label>Descrição completa</label>
         <textarea name="description" rows="5" required>{{ video.description }}</textarea>
 
+        <!-- CATEGORIA -->
+        <label>Categoria</label>
+        <select name="categoria">
+            <option value="" {% if not video.categoria %}selected{% endif %}>Sem categoria</option>
+            {% for cat in categorias_disponiveis %}
+            <option value="{{ cat }}" {% if video.categoria == cat %}selected{% endif %}>{{ cat }}</option>
+            {% endfor %}
+        </select>
+
         <!-- VÍDEO 360° -->
         <div class="checkbox-row">
             <input type="checkbox" name="is_360" value="1" id="is360Check" {% if video.is_360 %}checked{% endif %}>

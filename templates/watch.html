@@ -246,7 +246,7 @@
 </head>
 <body>
   <div class="pv-stage" id="pv">
-    <video class="pv-video" id="vid" src="{{ static_url }}uploads/{{ video.filename }}" preload="metadata" playsinline>
+    <video class="pv-video" id="vid" src="{{ static_url }}uploads/{{ video.filename }}" {% if video.is_360 %}crossorigin="anonymous" preload="auto"{% else %}preload="metadata"{% endif %} playsinline>
       <!-- LEGENDAS SRT -->
       {% if video.subtitle_file %}
       <track id="subtitleTrack" label="Português" kind="subtitles" srclang="pt" src="{{ static_url }}uploads/subtitles/{{ video.subtitle_file }}">
@@ -1140,6 +1140,15 @@
       } else {
         vid.addEventListener('loadedmetadata', iniciar360, { once: true });
       }
+
+      // Com o vídeo parado em 0:00 o navegador só carregou os metadados e
+      // nenhum quadro, então a textura da esfera fica preta até o play.
+      // Pular um tiquinho força a decodificação do primeiro quadro.
+      function mostrarPrimeiroQuadro() {
+        if (vid.currentTime === 0) vid.currentTime = 0.001;
+      }
+      if (vid.readyState >= 1) mostrarPrimeiroQuadro();
+      else vid.addEventListener('loadedmetadata', mostrarPrimeiroQuadro, { once: true });
 
       // Também redesenha quando entra/sai do fullscreen, já que o
       // tamanho do stage muda

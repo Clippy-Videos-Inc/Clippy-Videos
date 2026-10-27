@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>
-    {{ video.title }} - Clippy Videos
+    {{ video.title if tipo == "video" else live.title }} - Clippy Videos
   </title>
   <link rel="icon" href="{{ static_url }}/favicon.ico" type="image/x-icon">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
@@ -201,11 +201,15 @@
 
   <div class="container">
     <main class="video-section">
+        {% if tipo == "video" %}
         <iframe src="{{ url_for('watch', video_id=video.id) }}" allowfullscreen></iframe>
+        {% else %}
+        <iframe src="{{ url_for('lives', live_id=live.id) }}" allowfullscreen></iframe>
+        {% endif %}
     
       <div class="video-info">
         <h1>
-          {{ video.title }}
+          {{ video.title if tipo == "video" else live.title }}
         </h1>
 
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
@@ -218,7 +222,11 @@
             <div>
               <div style="font-weight: bold; font-size: 1.1rem;">{{ canal_display_name }}</div>
               <div style="font-size: 0.9rem; color: #c0c0ff;">@{{ canal_username }}</div>
+              {% if tipo == "video" %}
               <span>postado {{ video.idade }}</span>
+              {% else %}
+              <span style="color:#ff5e93; font-weight:700;">🔴 ao vivo agora</span>
+              {% endif %}
             </div>
           </div>
 
@@ -237,22 +245,26 @@
                 <button class="btn btn-add-playlist" id="addToPlaylistBtn">➕ Adicionar à Playlist</button>
                 <a class="btn btn-add-playlist" href="/download/{{ video.id }}">📂 Download</a>
                 <a class="btn btn-add-playlist" href="/pro">💰 comprar pro</a>
+                <a href="http://192.168.0.150:7078/?video={{ video.id }}" target="_blank">🤖 Perguntar à IA</a>
               {% endif %}
             {% else %}
-              <div class="btn" style="background: #ff2d8d;">👥 {{ live.viewers or 0 }} assistindo agora</div>
+              <div class="btn" style="background: #ff2d8d;">🔴 Transmissão ao vivo</div>
             {% endif %}
           </div>
         </div>
 
+        {% if tipo == "video" %}
         <div style="margin-top: 20px; padding: 14px; background: rgba(0,0,0,0.4); border-radius: 10px; font-size: 0.97rem;">
             <strong>{{ video.views }} visualizações</strong> • {{ video.description }}
         </div>
+        {% endif %}
       </div>
 
+      {% if tipo == "video" %}
       <!-- Comentários -->
       <section class="comments-section">
         <h3>💬 Comentários</h3>
-        {% if tipo == "video" and session.get('username') %}
+        {% if session.get('username') %}
           <form action="/comentar/{{ video.id }}" method="POST" style="margin-bottom: 25px;">
             <textarea name="comentario" placeholder="Comente algo..." required style="width:100%; background:#1f1f38; border:2px solid #6a6aff; border-radius:10px; color:white; padding:0px; min-height:100px;"></textarea>
             <button type="submit" class="btn btn-like">Publicar Comentário</button>
@@ -272,10 +284,17 @@
           {% endif %}
         {% endfor %}
       </section>
+      {% else %}
+      <section class="comments-section">
+        <h3>💬 Comentários</h3>
+        <p style="color:#999; font-size:0.95rem;">Comentários ficam disponíveis só em vídeos publicados -- ainda não existe chat ao vivo por aqui.</p>
+      </section>
+      {% endif %}
     </main>
 
-    <!-- Vídeos Relacionados -->
+    <!-- Vídeos Relacionados / Outras lives -->
     <aside class="related-section">
+      {% if tipo == "video" %}
       <h2>Próximos vídeos</h2>
       {% for v in relacionados %}
       <a href="{{ url_for('player', item_id=v.id) }}" class="related-card">
@@ -286,6 +305,20 @@
         </div>
       </a>
       {% endfor %}
+      {% else %}
+      <h2>Outras lives agora</h2>
+      {% for l in outras_lives %}
+      <a href="{{ url_for('player', item_id=l.id) }}" class="related-card">
+        <img src="/foto_canal/{{ l.channel }}" alt="thumb">
+        <div>
+          <h4>{{ l.title }}</h4>
+          <small style="color:#c0c0ff;">@{{ l.channel }} • 🔴 ao vivo</small>
+        </div>
+      </a>
+      {% else %}
+      <p style="color:#888;">Nenhuma outra live no momento.</p>
+      {% endfor %}
+      {% endif %}
     </aside>
   </div>
 
@@ -301,6 +334,7 @@
     }
 });
 
+    {% if tipo == "video" %}
     function react(type){
 
     fetch('/react_video', {
@@ -339,6 +373,7 @@ document.getElementById('likeBtn')
 
 document.getElementById('dislikeBtn')
     .addEventListener('click', () => react(-1));
+    {% endif %}
   </script>
 </body>
 </html>

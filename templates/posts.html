@@ -1,162 +1,194 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="{{ lang_atual }}">
 <head>
-  <meta charset="UTF-8">
-  <title>Posts de @{{ username }}</title>
-  <style>
-    body {
-  font-family: 'Roboto', sans-serif;
-  background: #f9f9f9;
-  background-color: {{ user_settings.cor_fundo }} !important;
-  margin: 0;
-  padding: 0;
-  color: #333;
-}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Posts de @{{ username }} - {{ t.app.nome }}</title>
+    <link rel="icon" href="{{ static_url }}favicon.ico" type="image/x-icon">
+    <link href="{{ static_url }}scripts/sidebar-static.css" rel="stylesheet">
+    <style>
+        :root { --neon: #6a6aff; }
+        * { box-sizing: border-box; }
 
-/* Header do canal */
-header {
-  background: #202020;
-  color: white;
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #2c2c4c 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 30px 30px 30px 250px;
+        }
 
-header img {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 3px solid #e50914;
-}
+        /* --- CABEÇALHO DO CANAL --- */
+        .channel-header {
+            display: flex;
+            align-items: center;
+            gap: 22px;
+            flex-wrap: wrap;
+            background: linear-gradient(145deg, #3a3a5c, #25253d);
+            border: 2px solid var(--neon);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+        }
+        .channel-header img.avatar {
+            width: 84px;
+            height: 84px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--neon);
+            box-shadow: 0 0 20px rgba(106,106,255,0.5);
+            flex-shrink: 0;
+        }
+        .channel-header .info { flex: 1; min-width: 220px; }
+        .channel-header h1 { margin: 0 0 4px; font-size: 24px; text-shadow: 0 2px 8px rgba(106,106,255,0.5); }
+        .channel-header .username { color: #c0c0ff; font-size: 14px; margin-bottom: 8px; }
+        .channel-header .bio { color: #ddd; font-size: 14px; max-width: 620px; margin-bottom: 8px; }
+        .channel-header .subs { color: #9d9dff; font-size: 13.5px; font-weight: 600; }
 
-header .info h1 {
-  margin: 0;
-  font-size: 22px;
-  color: #fff;
-}
+        .header-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 10px;
+            flex-shrink: 0;
+        }
 
-header .info p {
-  margin: 4px 0;
-  font-size: 14px;
-  color: #ccc;
-}
+        .subscribe-btn {
+            background: linear-gradient(#ff2d8d, #ff6ab3);
+            color: white;
+            border: none;
+            padding: 12px 26px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 6px 18px rgba(255,45,141,0.5);
+            transition: transform 0.2s;
+        }
+        .subscribe-btn.subscribed { background: rgba(255,255,255,0.1); box-shadow: none; }
+        .subscribe-btn:hover { transform: scale(1.05); }
 
-.subscribe-btn {
-  background: #e50914;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 20px;
-  cursor: pointer;
-  font-weight: bold;
-  transition: background 0.3s;
-}
-.subscribe-btn:hover {
-  background: #b20710;
-}
+        /* --- ABAS VÍDEOS / POSTS --- */
+        .tabs { display: flex; gap: 10px; }
+        .tab-link {
+            text-decoration: none;
+            color: #c0c0ff;
+            font-weight: 700;
+            font-size: 13.5px;
+            padding: 9px 20px;
+            border-radius: 20px;
+            border: 2px solid var(--neon);
+            transition: all 0.2s;
+        }
+        .tab-link.active { background: linear-gradient(#6a6aff, #9d9dff); color: #fff; }
+        .tab-link:hover { background: rgba(106,106,255,0.2); }
 
-/* Links de navegação */
-header a {
-  color: white;
-  text-decoration: none;
-  font-size: 12px;
-  text-align: center;
-}
-header a img {
-  width: 28px;
-  height: 28px;
-  margin-bottom: 4px;
-}
+        /* --- LISTA DE POSTS --- */
+        h2.section-title {
+            font-size: 1.4rem;
+            margin: 10px 0 22px;
+            color: #ddd;
+        }
 
-/* Título da seção */
-h1 {
-  font-size: 20px;
-  color: #e50914;
-  margin: 20px;
-}
+        .post-card {
+            background: linear-gradient(145deg, #3a3a5c, #25253d);
+            border: 2px solid var(--neon);
+            border-radius: 14px;
+            padding: 20px 24px;
+            margin-bottom: 18px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .post-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 28px rgba(106,106,255,0.3);
+        }
+        .post-card h3 {
+            margin: 0 0 10px;
+            color: #fff;
+            font-size: 18px;
+        }
+        .post-card p {
+            font-size: 14.5px;
+            line-height: 1.55;
+            color: #ddd;
+            margin: 0 0 10px;
+            white-space: pre-wrap;
+        }
+        .post-card small { color: #9d9dff; font-size: 12.5px; }
 
-/* Card de post */
-.post {
-  background: white;
-  padding: 20px;
-  margin: 20px;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-.post:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
-}
-
-.post h3 {
-  margin: 0 0 10px;
-  color: #e50914;
-  font-size: 18px;
-}
-
-.post p {
-  font-size: 15px;
-  line-height: 1.4;
-  margin-bottom: 8px;
-}
-
-.post small {
-  color: #777;
-  font-size: 13px;
-}
-.nav-btn {
-  background: #4285f4;
-  color: white;
-  padding: 8px 16px;
-  border-radius: 6px;
-  text-decoration: none;
-  font-size: 14px;
-  transition: background 0.2s ease;
-}
-.nav-btn:hover {
-  background: #3367d6;
-}
-  </style>
+        .vazio {
+            text-align: center;
+            padding: 70px 20px;
+            color: #6060aa;
+            font-size: 1.05rem;
+        }
+    </style>
 </head>
 <body>
-    <header>
-  <img src="/foto_canal/{{ username }}" alt="Foto do canal"></img>
-  <div class="info">
-    <h1>{{ display_name }} (@{{ username }})</h1>
-    <p>{{ bio }}</p>
-    <p>{{ subscribers }} inscritos</p>
-    {% if not ja_inscrito %}
-    <form method="POST" action="/inscrever/{{ username }}">
-      <button class="subscribe-btn">Inscrever-se</button>
-    </form>
+
+    <!-- Sidebar (mesma de index.html/canal.html) -->
+    <nav class="sidebar">
+        <img class="logo" src="{{ static_url }}/logo.png" alt="Veja a Copa do Mundo de 2026!">
+        &ThinSpace;
+        <a href="/" class="menu-item"><img src="{{ static_url }}home.png"> {{ t.menu.inicio }}</a>
+        <a href="/buscar" class="menu-item"><img src="{{ static_url }}search.png"> {{ t.menu.pesquisar }}</a>
+        <a href="/shorts" class="menu-item"><img src="{{ static_url }}tia.png"> {{ t.menu.shorts }}</a>
+        <a href="{{ studio_link }}" {% if studio_link %} href="https://192.168.0.150:7072/create" {% endif %} class="menu-item"><img src="{{ static_url }}studio.png"> {{ t.menu.studio }}</a>
+        <a href="/aovivo" class="menu-item"><img src="{{ static_url }}w.png"> {{ t.menu.ao_vivo }}</a>
+        <hr style="border: 0.5px solid #555; margin: 20px 0;">
+        <a href="/conta" class="menu-item"><img src="{{ static_url }}user.png"> {{ t.menu.conta }}</a>
+        <a href="/historico" class="menu-item"><img src="{{ static_url }}story.png"> {{ t.menu.historico }}</a>
+        <a href="/buscar_contas" class="menu-item"><img src="{{ static_url }}users.png"> {{ t.menu.buscar_contas }}</a>
+        <a href="/chats" class="menu-item"><img src="{{ static_url }}users.png"> {{ t.menu.conversas }}</a>
+        <a href="#" class="menu-item"><img src="{{ static_url }}bot.png"> {{ t.menu.ia }}</a>
+        <hr style="border: 0.5px solid #555; margin: 20px 0;">
+        <a href="/configs" class="menu-item"><img src="{{ static_url }}icons/settings.png"> {{ t.menu.configuracoes }}</a>
+        <a href="/sobre" class="menu-item"><img src="{{ static_url }}cd.png"> {{ t.menu.sobre }}</a>
+        <a href="/ajuda" class="menu-item"><img src="{{ static_url }}help.png"> {{ t.menu.ajuda }}</a>
+    </nav>
+
+    <!-- Cabeçalho do canal -->
+    <div class="channel-header">
+        <img src="/foto_canal/{{ username }}" class="avatar" alt="{{ display_name }}" onerror="this.src='/static/user.png'">
+        <div class="info">
+            <h1>{{ display_name }}</h1>
+            <div class="username">@{{ username }}</div>
+            <p class="bio">{{ bio or 'Este canal ainda não tem descrição.' }}</p>
+            <div class="subs">{{ subscribers }} inscritos</div>
+        </div>
+        <div class="header-actions">
+            {% if session.get('username') and session['username'] != username %}
+                {% if ja_inscrito %}
+                <form method="POST" action="/unsubscribe/{{ username }}">
+                    <button type="submit" class="subscribe-btn subscribed">Inscrito</button>
+                </form>
+                {% else %}
+                <form method="POST" action="/inscrever/{{ username }}">
+                    <button type="submit" class="subscribe-btn">Inscrever-se</button>
+                </form>
+                {% endif %}
+            {% endif %}
+            <div class="tabs">
+                <a href="/@{{ username }}" class="tab-link">Vídeos</a>
+                <a href="/@{{ username }}/posts" class="tab-link active">Posts</a>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="section-title">📢 Posts de @{{ username }}</h2>
+
+    {% for post in posts %}
+    <div class="post-card">
+        <h3>{{ post.title }}</h3>
+        <p>{{ post.content }}</p>
+        <small>{{ post.date }}</small>
+    </div>
     {% else %}
-    <p style="color: #5f6368;">Você já está inscrito neste canal.</p>
-    {% endif %}
-  </div>
+    <p class="vazio">Nenhum post publicado ainda.</p>
+    {% endfor %}
 
-  <!-- Navegação -->
-  <nav style="display:flex; gap:20px; align-items:center;">
-    <a href="/@{{ username }}" class="nav-btn">Vídeos</a>
-    <a href="/@{{ username }}/posts" class="nav-btn">Posts</a>
-  </nav>
-</header>
-
-  <h1>📢 Posts de @{{ username }}</h1>
-
-  {% for post in posts %}
-  <div class="post">
-    <h3>{{ post.title }}</h3>
-    <p>{{ post.content }}</p>
-    <small>{{ post.date }}</small>
-  </div>
-  {% else %}
-  <p>Nenhum post publicado ainda.</p>
-  {% endfor %}
 </body>
 </html>

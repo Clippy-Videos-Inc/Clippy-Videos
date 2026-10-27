@@ -112,6 +112,16 @@
       <textarea name="description" placeholder="Conte aos espectadores sobre o seu vídeo"></textarea>
     </div>
 
+    <div class="form-group">
+      <label>Categoria</label>
+      <select name="categoria">
+        <option value="">Sem categoria</option>
+        {% for cat in categorias_disponiveis %}
+        <option value="{{ cat }}">{{ cat }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
     <div class="checkbox-row">
       <input type="checkbox" name="is_360" value="1" id="is360Check">
       <label for="is360Check">

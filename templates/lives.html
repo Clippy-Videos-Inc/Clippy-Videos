@@ -107,6 +107,95 @@
       opacity: .85;
       z-index: 10;
     }
+
+    .aviso-fim {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 10px;
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      font-family: system-ui, sans-serif;
+      text-align: center;
+      z-index: 30;
+    }
+    .aviso-fim.ativo { display: flex; }
+    .aviso-fim a {
+      color: #9d9dff;
+      text-decoration: none;
+      border: 1px solid #6a6aff;
+      padding: 8px 18px;
+      border-radius: 20px;
+    }
+
+    /* ── CHAT AO VIVO (serviço em Go) ── */
+    .chat-live {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 320px;
+      max-width: 85vw;
+      background: rgba(10,10,20,0.75);
+      backdrop-filter: blur(4px);
+      display: flex;
+      flex-direction: column;
+      font-family: system-ui, sans-serif;
+      z-index: 20;
+      transition: transform .25s ease;
+    }
+    .chat-live.fechado { transform: translateX(100%); }
+    .chat-live-topo {
+      padding: 12px 14px;
+      font-weight: 700;
+      color: #fff;
+      border-bottom: 1px solid rgba(255,255,255,0.15);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .chat-live-msgs {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .chat-live-msg { font-size: 13px; color: #e0e0ff; line-height: 1.4; }
+    .chat-live-msg b { color: #9d9dff; }
+    .chat-live-form { display: flex; gap: 6px; padding: 10px 14px; border-top: 1px solid rgba(255,255,255,0.15); }
+    .chat-live-form input {
+      flex: 1;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #444;
+      background: #1a1a2e;
+      color: #fff;
+    }
+    .chat-live-form button {
+      background: #6a6aff;
+      border: none;
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .chat-toggle {
+      position: absolute;
+      top: 8px;
+      right: 328px;
+      z-index: 21;
+      background: rgba(0,0,0,0.5);
+      border: none;
+      color: #fff;
+      border-radius: 8px;
+      padding: 8px 10px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -114,7 +203,25 @@
     <video class="pv-video" id="vid" autoplay playsinline></video>
 
     <div class="pv-title">🔴 {{ live.title }}</div>
-    <div class="stats">👥 <span id="viewers">0</span> espectadores</div>
+    <div class="stats" id="statusBadge">🟡 conectando…</div>
+
+    <div class="aviso-fim" id="avisoFim">
+      <div style="font-size:20px; font-weight:700;">A transmissão foi encerrada</div>
+      <a href="/aovivo">Ver outras lives</a>
+    </div>
+
+    <button class="chat-toggle" id="btnToggleChat">💬</button>
+    <div class="chat-live" id="chatLive">
+      <div class="chat-live-topo">
+        <span>Chat ao vivo</span>
+        <span id="chatStatus" style="font-size:12px; color:#8888c0;">conectando…</span>
+      </div>
+      <div class="chat-live-msgs" id="chatMsgs"></div>
+      <form class="chat-live-form" id="chatForm">
+        <input type="text" id="chatInput" placeholder="Envie uma mensagem…" maxlength="300" autocomplete="off">
+        <button type="submit">➤</button>
+      </form>
+    </div>
 
     <div class="pv-ui">
       <div class="pv-controls">
@@ -137,46 +244,60 @@
     const btnTogglePlay = document.getElementById('btnTogglePlay');
     const btnToggleMute = document.getElementById('btnToggleMute');
     const btnFullscreen = document.getElementById('btnFullscreen');
-    const viewersEl = document.getElementById('viewers');
+    const statusBadge = document.getElementById('statusBadge');
+    const avisoFim = document.getElementById('avisoFim');
     const liveId = "{{ live.id }}";
 
     let pc;
-    const socket = io({ transports: ['websocket'] });
+    let publisherSid = null;
+    // io() sem forçar transports: negocia automaticamente (long-polling
+    // funciona atrás do Waitress; WebSocket é usado quando disponível).
+    const socket = io();
 
-    async function startWatch() {
+    function criarConexao() {
       pc = new RTCPeerConnection();
       pc.ontrack = (e) => { vid.srcObject = e.streams[0]; };
-
-      socket.emit('join', { liveId, role: 'viewer' });
-
       pc.onicecandidate = (e) => {
-        if (e.candidate) socket.emit('candidate', { liveId, candidate: e.candidate });
+        if (e.candidate && publisherSid) {
+          socket.emit('candidate', { liveId, candidate: e.candidate, to: publisherSid });
+        }
       };
-
-      const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
-      await pc.setLocalDescription(offer);
-      socket.emit('offer', { liveId, sdp: offer.sdp, role: 'viewer' });
-
-      socket.on('answer', async (payload) => {
-        if (payload.liveId === liveId) {
-          await pc.setRemoteDescription({ type:'answer', sdp: payload.sdp });
-        }
-      });
-
-      socket.on('candidate', async (payload) => {
-        if (payload.liveId === liveId) {
-          try { await pc.addIceCandidate(payload.candidate); } catch {}
-        }
-      });
-
-      // Atualiza contador de espectadores
-      socket.on('system', (msg) => {
-        if (msg.role === 'viewer') {
-          viewersEl.textContent = parseInt(viewersEl.textContent) + 1;
-        }
-      });
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'connected') statusBadge.textContent = '🔴 ao vivo';
+        if (['failed', 'disconnected'].includes(pc.connectionState)) statusBadge.textContent = '🟡 reconectando…';
+      };
     }
-    startWatch();
+
+    function iniciarEspectador() {
+      criarConexao();
+      socket.emit('join', { liveId, role: 'viewer' });
+    }
+    iniciarEspectador();
+
+    // O PUBLISHER que manda a oferta (ver live.html) -- o viewer só
+    // responde com uma answer.
+    socket.on('offer', async (payload) => {
+      if (payload.liveId !== liveId) return;
+      publisherSid = payload.from;
+      try {
+        await pc.setRemoteDescription({ type: 'offer', sdp: payload.sdp });
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit('answer', { liveId, sdp: pc.localDescription.sdp, to: publisherSid });
+      } catch (err) { console.error(err); }
+    });
+
+    socket.on('candidate', async (payload) => {
+      if (payload.liveId !== liveId) return;
+      try { await pc.addIceCandidate(payload.candidate); } catch {}
+    });
+
+    socket.on('publisher-left', (payload) => {
+      if (payload.liveId !== liveId) return;
+      avisoFim.classList.add('ativo');
+      statusBadge.textContent = '⚫ encerrada';
+      if (pc) pc.close();
+    });
 
     // Controles
     btnTogglePlay.onclick = () => {
@@ -204,6 +325,66 @@
         document.exitFullscreen();
       }
     };
+
+    window.addEventListener('beforeunload', () => {
+      socket.emit('leave', { liveId, role: 'viewer' });
+    });
+
+    // ── CHAT AO VIVO (serviço em Go, WebSocket próprio -- não usa o
+    // Socket.IO do sinal WebRTC acima) ──────────────────────────────
+    const GO_LIVECHAT_URL = {{ go_livechat_url | tojson }};
+    const chatMsgs   = document.getElementById('chatMsgs');
+    const chatForm   = document.getElementById('chatForm');
+    const chatInput  = document.getElementById('chatInput');
+    const chatStatus = document.getElementById('chatStatus');
+    const chatLive   = document.getElementById('chatLive');
+    const btnToggleChat = document.getElementById('btnToggleChat');
+
+    btnToggleChat.onclick = () => chatLive.classList.toggle('fechado');
+
+    function adicionarMensagemChat(m) {
+      const div = document.createElement('div');
+      div.className = 'chat-live-msg';
+      div.innerHTML = `<b>${m.username}:</b> ${m.texto}`;
+      chatMsgs.appendChild(div);
+      chatMsgs.scrollTop = chatMsgs.scrollHeight;
+    }
+
+    let chatWs = null;
+    function conectarChat(token) {
+      const base = GO_LIVECHAT_URL.replace(/^http/, 'ws');
+      const url = base + `ws/live/${liveId}` + (token ? `?token=${encodeURIComponent(token)}` : '');
+      chatWs = new WebSocket(url);
+      chatWs.onopen = () => { chatStatus.textContent = token ? 'conectado' : 'conectado (somente leitura)'; };
+      chatWs.onclose = () => { chatStatus.textContent = 'desconectado'; };
+      chatWs.onerror = () => { chatStatus.textContent = 'erro na conexão'; };
+      chatWs.onmessage = (ev) => {
+        try {
+          const data = JSON.parse(ev.data);
+          if (data.tipo === 'historico') {
+            chatMsgs.innerHTML = '';
+            (data.mensagens || []).forEach(adicionarMensagemChat);
+          } else if (data.tipo === 'mensagem') {
+            adicionarMensagemChat(data);
+          }
+        } catch (e) { console.error('mensagem de chat inválida:', e); }
+      };
+    }
+
+    // Login é opcional pra ASSISTIR o chat; só é exigido pra ENVIAR
+    // mensagem (o serviço Go valida isso e recusa o envio sem token).
+    fetch('/api/go-token')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => conectarChat(data && data.token))
+      .catch(() => conectarChat(null));
+
+    chatForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const texto = chatInput.value.trim();
+      if (!texto || !chatWs || chatWs.readyState !== WebSocket.OPEN) return;
+      chatWs.send(JSON.stringify({ texto }));
+      chatInput.value = '';
+    });
   </script>
 </body>
 </html>

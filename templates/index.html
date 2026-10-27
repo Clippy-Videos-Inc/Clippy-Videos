@@ -138,6 +138,95 @@
         .feed-vazio a:hover { background: rgba(106,106,255,0.2); color: #fff; }
 
         .logo { width: 180px; height: auto; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6)); }
+
+        /* ── CATEGORIAS ── */
+        .categorias-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 18px;
+        }
+        .categorias-nav a {
+            font-size: 0.85rem;
+            padding: 6px 14px;
+            border-radius: 20px;
+            text-decoration: none;
+            color: #8888c0;
+            background: rgba(106,106,255,0.12);
+            border: 1px solid #5555cc;
+            white-space: nowrap;
+        }
+        .categorias-nav a:hover { color: #fff; background: rgba(106,106,255,0.3); }
+
+        /* ── NOTIFICAÇÕES (canto superior direito) ── */
+        .notif-wrap {
+            position: fixed;
+            top: 18px;
+            right: 24px;
+            z-index: 200;
+        }
+        .notif-bell {
+            position: relative;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #3a3a5c, #25253d);
+            border: 1px solid #5e5eff;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: #fff;
+        }
+        .notif-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: linear-gradient(90deg, #ff5e5e, #ff9d4a);
+            color: #fff;
+            font-size: 0.65rem;
+            font-weight: 800;
+            min-width: 16px;
+            height: 16px;
+            border-radius: 10px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+        }
+        .notif-panel {
+            display: none;
+            position: absolute;
+            top: 52px;
+            right: 0;
+            width: 320px;
+            max-height: 420px;
+            overflow-y: auto;
+            background: linear-gradient(145deg, #3a3a5c, #25253d);
+            border: 1px solid #5e5eff;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+        }
+        .notif-panel.aberto { display: block; }
+        .notif-panel h4 {
+            margin: 0;
+            padding: 14px 16px;
+            font-size: 0.95rem;
+            border-bottom: 1px solid rgba(106,106,255,0.25);
+        }
+        .notif-item {
+            display: block;
+            padding: 12px 16px;
+            text-decoration: none;
+            color: #e0e0ff;
+            font-size: 0.85rem;
+            border-bottom: 1px solid rgba(106,106,255,0.12);
+        }
+        .notif-item:hover { background: rgba(106,106,255,0.12); }
+        .notif-item.nao-lida { border-left: 3px solid #6a6aff; }
+        .notif-vazio { padding: 24px 16px; text-align: center; color: #6060aa; font-size: 0.85rem; }
     </style>
 
     <script>
@@ -152,6 +241,19 @@
 </head>
 <body>
 
+    {% if username %}
+    <!-- Notificações da conta (serviço em Go) -->
+    <div class="notif-wrap" id="notifWrap">
+        <div class="notif-bell" id="notifBell">
+            🔔<span class="notif-badge" id="notifBadge">0</span>
+        </div>
+        <div class="notif-panel" id="notifPanel">
+            <h4>Notificações</h4>
+            <div id="notifLista"><div class="notif-vazio">Carregando…</div></div>
+        </div>
+    </div>
+    {% endif %}
+
     <nav class="sidebar">
         <img class="logo" src="{{ static_url }}/logo.png" alt="Veja a Copa do Mundo de 2026!">
         &ThinSpace;
@@ -165,7 +267,7 @@
         <a href="/historico" class="menu-item"><img src="{{ static_url }}story.png"> {{ t.menu.historico }}</a>
         <a href="/buscar_contas" class="menu-item"><img src="{{ static_url }}users.png"> {{ t.menu.buscar_contas }}</a>
         <a href="/chats" class="menu-item"><img src="{{ static_url }}users.png"> {{ t.menu.conversas }}</a>
-        <a href="#" class="menu-item"><img src="{{ static_url }}bot.png"> {{ t.menu.ia }}</a>
+        <a href="http://192.168.0.150:7078" class="menu-item"><img src="https://img.icons8.com/?size=100&id=zAkA21sxGwue&format=png&color=000000"> {{ t.menu.ia }}</a>
         <hr style="border: 0.5px solid #555; margin: 20px 0;">
         <a href="/configs" class="menu-item"><img src="{{ static_url }}icons/settings.png"> {{ t.menu.configuracoes }}</a>
         <a href="/sobre" class="menu-item"><img src="{{ static_url }}cd.png"> {{ t.menu.sobre }}</a>
@@ -184,6 +286,13 @@
     </nav>
 
     <div class="main">
+
+        <!-- CATEGORIAS -->
+        <div class="categorias-nav">
+            {% for cat in categorias_disponiveis %}
+            <a href="{{ url_for('buscar', categoria=cat) }}">{{ cat }}</a>
+            {% endfor %}
+        </div>
 
         <!-- ABAS -->
         <div class="feed-tabs">
@@ -357,6 +466,104 @@
         }
     });
     </script>
+
+    {% if username %}
+    <script>
+    // ── NOTIFICAÇÕES (serviço em Go) ──────────────────
+    // O Flask só assina um token curto (ver /api/go-token); quem lista,
+    // guarda e empurra (push) as notificações é o serviço em Go.
+    const GO_NOTIF_URL = {{ go_notifications_url | tojson }};
+
+    let notifToken = null;
+    const badge  = document.getElementById('notifBadge');
+    const bell   = document.getElementById('notifBell');
+    const panel  = document.getElementById('notifPanel');
+    const lista  = document.getElementById('notifLista');
+
+    function tempoRelativo(iso) {
+        try {
+            const diffMs = Date.now() - new Date(iso).getTime();
+            const min = Math.floor(diffMs / 60000);
+            if (min < 1) return 'agora';
+            if (min < 60) return `há ${min}min`;
+            const h = Math.floor(min / 60);
+            if (h < 24) return `há ${h}h`;
+            return `há ${Math.floor(h / 24)}d`;
+        } catch { return ''; }
+    }
+
+    function atualizarBadge(n) {
+        if (n > 0) {
+            badge.textContent = n > 99 ? '99+' : n;
+            badge.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    function renderNotificacoes(itens) {
+        if (!itens || itens.length === 0) {
+            lista.innerHTML = '<div class="notif-vazio">Nenhuma notificação por aqui ainda.</div>';
+            return;
+        }
+        lista.innerHTML = itens.map(n => `
+            <a class="notif-item ${n.lida ? '' : 'nao-lida'}" href="${n.link || '#'}" data-id="${n.id}">
+                ${n.texto}
+                <div style="margin-top:4px;color:#8888c0;font-size:0.75rem;">${tempoRelativo(n.created_at)}</div>
+            </a>
+        `).join('');
+    }
+
+    function conectarNotificacoes() {
+        fetch('/api/go-token').then(r => r.ok ? r.json() : Promise.reject())
+            .then(data => {
+                notifToken = data.token;
+
+                // Lista inicial + contagem de não lidas
+                fetch(`${GO_NOTIF_URL}api/notificacoes?token=${encodeURIComponent(notifToken)}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        renderNotificacoes(data.notificacoes);
+                        atualizarBadge(data.nao_lidas || 0);
+                    })
+                    .catch(() => { lista.innerHTML = '<div class="notif-vazio">Não foi possível carregar.</div>'; });
+
+                // Push em tempo real
+                const wsUrl = GO_NOTIF_URL.replace(/^http/, 'ws') + `ws/notificacoes?token=${encodeURIComponent(notifToken)}`;
+                try {
+                    const ws = new WebSocket(wsUrl);
+                    ws.onmessage = (ev) => {
+                        try {
+                            const n = JSON.parse(ev.data);
+                            const atual = lista.querySelectorAll('.notif-item').length;
+                            const itens = [n, ...(atual ? [] : [])]; // sempre insere no topo
+                            lista.insertAdjacentHTML('afterbegin', `
+                                <a class="notif-item nao-lida" href="${n.link || '#'}" data-id="${n.id}">
+                                    ${n.texto}
+                                    <div style="margin-top:4px;color:#8888c0;font-size:0.75rem;">agora</div>
+                                </a>
+                            `);
+                            atualizarBadge(parseInt(badge.textContent || '0', 10) + 1);
+                        } catch (e) { console.error('notificação inválida:', e); }
+                    };
+                } catch (e) { console.warn('WebSocket de notificações indisponível:', e); }
+            })
+            .catch(() => {});
+    }
+
+    bell.addEventListener('click', () => {
+        panel.classList.toggle('aberto');
+        if (panel.classList.contains('aberto')) atualizarBadge(0);
+    });
+    document.addEventListener('click', (e) => {
+        if (!document.getElementById('notifWrap').contains(e.target)) {
+            panel.classList.remove('aberto');
+        }
+    });
+
+    conectarNotificacoes();
+    </script>
+    {% endif %}
 
 </body>
 </html>

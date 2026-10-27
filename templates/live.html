@@ -4,10 +4,20 @@
   <meta charset="UTF-8">
   <title>Iniciar live | Clippy Videos</title>
   <style>
+    body { font-family: system-ui, sans-serif; background: #0f0f1a; color: #fff; padding: 20px; }
     video { width: 100%; max-width: 720px; border-radius: 12px; background:#000; }
-    .bar { display:flex; gap:12px; margin-top:12px; }
+    .bar { display:flex; gap:12px; margin-top:12px; flex-wrap: wrap; }
     input, button { padding:10px; border-radius:8px; border:1px solid #ccc; }
     button { cursor:pointer; background:#4285f4; color:#fff; border:none; }
+    button:disabled { opacity: 0.5; cursor: default; }
+    #status { margin-top: 14px; font-size: 14px; color: #c0c0ff; }
+
+    .chat-live { margin-top: 20px; max-width: 420px; background: #1a1a2e; border: 1px solid #333; border-radius: 10px; }
+    .chat-live-topo { padding: 10px 14px; font-weight: 700; border-bottom: 1px solid #333; }
+    .chat-live-msgs { height: 220px; overflow-y: auto; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+    .chat-live-msg b { color: #9d9dff; }
+    .chat-live-form { display: flex; gap: 6px; padding: 10px 14px; border-top: 1px solid #333; }
+    .chat-live-form input { flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid #444; background: #0f0f1a; color: #fff; }
   </style>
 </head>
 <body>
@@ -18,11 +28,74 @@
     <button id="startBtn">Iniciar transmissão</button>
     <button id="stopBtn" disabled>Encerrar</button>
   </div>
+  <div id="status">👥 0 espectador(es) conectado(s)</div>
+
+  <div class="chat-live">
+    <div class="chat-live-topo">💬 Chat ao vivo</div>
+    <div class="chat-live-msgs" id="chatMsgs"></div>
+    <form class="chat-live-form" id="chatForm">
+      <input type="text" id="chatInput" placeholder="Enviar como @você…" maxlength="300" autocomplete="off">
+      <button type="submit">➤</button>
+    </form>
+  </div>
 
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script>
-  const socket = io({ transports: ['websocket'] });
-  let pc, stream, liveId;
+  // io() sem forçar transports: deixa o socket.io-client negociar
+  // (tenta long-polling primeiro e sobe pra WebSocket se o servidor
+  // suportar -- funciona tanto em dev quanto atrás do Waitress).
+  const socket = io();
+  let stream, liveId;
+
+  // Uma RTCPeerConnection POR espectador (não dá pra usar uma só conexão
+  // pra vários viewers -- cada peer é uma conversa 1-pra-1). A chave do
+  // mapa é o sid (id de conexão) do espectador no Socket.IO.
+  const peers = {};
+  const statusEl = document.getElementById('status');
+
+  function atualizarStatus() {
+    const conectados = Object.values(peers).filter(pc =>
+      pc.connectionState === 'connected' || pc.connectionState === 'connecting'
+    ).length;
+    statusEl.textContent = `👥 ${conectados} espectador(es) conectado(s)`;
+  }
+
+  function removerPeer(viewerId) {
+    const pc = peers[viewerId];
+    if (pc) {
+      pc.close();
+      delete peers[viewerId];
+    }
+    atualizarStatus();
+  }
+
+  async function criarPeerParaViewer(viewerId) {
+    const pc = new RTCPeerConnection();
+    peers[viewerId] = pc;
+
+    stream.getTracks().forEach(t => pc.addTrack(t, stream));
+
+    pc.onicecandidate = (e) => {
+      if (e.candidate) {
+        socket.emit('candidate', { liveId, candidate: e.candidate, to: viewerId });
+      }
+    };
+    pc.onconnectionstatechange = () => {
+      atualizarStatus();
+      if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) {
+        removerPeer(viewerId);
+      }
+    };
+
+    // Aqui é o PUBLISHER que inicia a oferta assim que sabe que um
+    // espectador novo chegou -- mais simples do que esperar o viewer
+    // ofertar, porque assim só existe UM jeito de começar a conversa.
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    socket.emit('offer', { liveId, sdp: pc.localDescription.sdp, to: viewerId });
+
+    atualizarStatus();
+  }
 
   async function startLive() {
     stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -39,38 +112,17 @@
     if (!data.id) { alert('Falha ao criar live'); return; }
     liveId = data.id;
 
-    pc = new RTCPeerConnection();
-    stream.getTracks().forEach(t => pc.addTrack(t, stream));
-
     socket.emit('join', { liveId, role: 'publisher' });
 
-    pc.onicecandidate = (e) => {
-      if (e.candidate) socket.emit('candidate', { liveId, candidate: e.candidate });
-    };
-
-    // Publisher recebe offer dos viewers, cria answer e envia
-    socket.on('offer', async (payload) => {
-      if (payload.liveId !== liveId) return;
-      try {
-        await pc.setRemoteDescription({ type:'offer', sdp: payload.sdp });
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        socket.emit('answer', { liveId, sdp: answer.sdp });
-      } catch (err) { console.error(err); }
-    });
-
-    socket.on('candidate', async (payload) => {
-      if (payload.liveId !== liveId) return;
-      try { await pc.addIceCandidate(payload.candidate); } catch {}
-    });
-
-    alert(`Live iniciada! ID: ${liveId}\nLink: /lives/${liveId}`);
+    alert(`Live iniciada! ID: ${liveId}\nLink pra assistir: /lives/${liveId}`);
     document.getElementById('startBtn').disabled = true;
     document.getElementById('stopBtn').disabled = false;
+
+    conectarChat(liveId);
   }
 
   async function stopLive() {
-    pc?.close();
+    Object.keys(peers).forEach(removerPeer);
     stream?.getTracks()?.forEach(t => t.stop());
     socket.emit('leave', { liveId, role: 'publisher' });
     await fetch('/api/live/stop', {
@@ -79,11 +131,86 @@
     });
     document.getElementById('startBtn').disabled = false;
     document.getElementById('stopBtn').disabled = true;
-    alert('Live encerrada.');
+    statusEl.textContent = 'Live encerrada.';
+    if (chatWs) chatWs.close();
   }
+
+  // ── CHAT AO VIVO (serviço em Go) -- o publisher precisa estar
+  // logado (as rotas de live já exigem isso), então sempre manda token.
+  const GO_LIVECHAT_URL = {{ go_livechat_url | tojson }};
+  const chatMsgs  = document.getElementById('chatMsgs');
+  const chatForm  = document.getElementById('chatForm');
+  const chatInput = document.getElementById('chatInput');
+  let chatWs = null;
+
+  function adicionarMensagemChat(m) {
+    const div = document.createElement('div');
+    div.className = 'chat-live-msg';
+    div.innerHTML = `<b>${m.username}:</b> ${m.texto}`;
+    chatMsgs.appendChild(div);
+    chatMsgs.scrollTop = chatMsgs.scrollHeight;
+  }
+
+  async function conectarChat(id) {
+    const res = await fetch('/api/go-token');
+    if (!res.ok) return;
+    const { token } = await res.json();
+    const base = GO_LIVECHAT_URL.replace(/^http/, 'ws');
+    chatWs = new WebSocket(base + `ws/live/${id}?token=${encodeURIComponent(token)}`);
+    chatWs.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data.tipo === 'historico') {
+          chatMsgs.innerHTML = '';
+          (data.mensagens || []).forEach(adicionarMensagemChat);
+        } else if (data.tipo === 'mensagem') {
+          adicionarMensagemChat(data);
+        }
+      } catch (e) { console.error('mensagem de chat inválida:', e); }
+    };
+  }
+
+  chatForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const texto = chatInput.value.trim();
+    if (!texto || !chatWs || chatWs.readyState !== WebSocket.OPEN) return;
+    chatWs.send(JSON.stringify({ texto }));
+    chatInput.value = '';
+  });
+
+  // Um espectador novo entrou -- cria a conexão dedicada pra ele
+  socket.on('viewer-joined', (payload) => {
+    if (payload.liveId !== liveId) return;
+    criarPeerParaViewer(payload.viewerId);
+  });
+
+  // Espectador saiu (fechou a página, deu leave) -- limpa a conexão dele
+  socket.on('viewer-left', (payload) => {
+    if (payload.liveId !== liveId) return;
+    removerPeer(payload.viewerId);
+  });
+
+  // Resposta (answer) de um espectador específico à nossa oferta
+  socket.on('answer', async (payload) => {
+    if (payload.liveId !== liveId) return;
+    const pc = peers[payload.from];
+    if (!pc) return;
+    try {
+      await pc.setRemoteDescription({ type: 'answer', sdp: payload.sdp });
+    } catch (err) { console.error(err); }
+  });
+
+  // ICE candidate vindo de um espectador específico
+  socket.on('candidate', async (payload) => {
+    if (payload.liveId !== liveId) return;
+    const pc = peers[payload.from];
+    if (!pc) return;
+    try { await pc.addIceCandidate(payload.candidate); } catch {}
+  });
 
   document.getElementById('startBtn').addEventListener('click', startLive);
   document.getElementById('stopBtn').addEventListener('click', stopLive);
+  window.addEventListener('beforeunload', () => { if (liveId) stopLive(); });
 </script>
 </body>
 </html>
