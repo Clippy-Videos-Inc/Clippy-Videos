@@ -22,14 +22,16 @@ A plataforma tem como objetivo conectar pessoas por meio de vídeos, permitindo:
 - Python
 - Flask
 - Bibliotecas adicionais do Python
+- Go
 
 ## Requisitos
 
 Antes de iniciar o projeto, certifique-se de ter instalado:
 
-- Python 3.x
+- Python 3.12 (ou Superior)
 - pip
 - Git
+- Go
 
 ## Instalação
 
@@ -70,7 +72,7 @@ flask run
 Acesse a aplicação em:
 
 ```text
-http://localhost:5000
+http://localhost:7070
 ```
 
 ## Contribuição
