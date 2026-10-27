@@ -1,0 +1,6 @@
+{
+  "secret": "WsTDo1zxc0oxx2o9Xo*188m",
+  "interval": 30,
+  "verify_tls": "L:/xingia/192.168.0.150.pem",
+  "peers": []
+}

@@ -7,6 +7,8 @@ import subprocess
 import sqlite3
 import json
 import functools
+import secrets
+import requests
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
 from werkzeug.utils import secure_filename
@@ -20,6 +22,53 @@ UPLOAD_FOLDER = r'D:\cstatic\static\uploads' if os.name == 'nt' else 'static/upl
 FFMPEG_PATH = r'L:\ffmpeg\bin\ffmpeg.exe' if os.name == 'nt' else 'ffmpeg'
 SUBTITLES_FOLDER = os.path.join(UPLOAD_FOLDER, 'subtitles')
 BANNERS_FOLDER = os.path.join(UPLOAD_FOLDER, 'banners')
+
+# Mesma lista de categorias do app.py (precisa bater nos dois processos).
+CATEGORIAS = [
+    'Jogos', 'Música', 'Educação', 'Entretenimento', 'Esportes',
+    'Notícias', 'Tecnologia', 'Vlogs', 'Humor', 'Ciência', 'Outros',
+]
+
+# Serviço Go de notificações -- usado aqui pra avisar os inscritos quando
+# um canal publica um vídeo novo. Segue o mesmo segredo compartilhado que
+# o app.py gera em go_shared_secret.txt (arquivo na raiz do projeto).
+GO_NOTIFICATIONS_INTERNAL_URL = os.environ.get(
+    'GO_NOTIFICATIONS_INTERNAL_URL', 'http://127.0.0.1:7080/'
+)
+_GO_SHARED_SECRET_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'go_shared_secret.txt')
+
+def get_go_shared_secret():
+    if not os.path.exists(_GO_SHARED_SECRET_PATH):
+        with open(_GO_SHARED_SECRET_PATH, 'w', encoding='utf-8') as f:
+            f.write(secrets.token_hex(32))
+    with open(_GO_SHARED_SECRET_PATH, 'r', encoding='utf-8') as f:
+        return f.read().strip()
+
+def notificar_inscritos_novo_video(channel, video_title, video_id):
+    """Avisa (best-effort) todos os inscritos de 'channel' que saiu vídeo
+    novo. Se o serviço Go de notificações estiver fora do ar, só loga --
+    nunca impede o upload de terminar."""
+    try:
+        conn = get_db()
+        c = conn.cursor()
+        c.execute("SELECT username FROM subscribers WHERE channel = ?", (channel,))
+        inscritos = [r['username'] for r in c.fetchall()]
+        conn.close()
+        secret = get_go_shared_secret()
+        for inscrito in inscritos:
+            requests.post(
+                GO_NOTIFICATIONS_INTERNAL_URL.rstrip('/') + '/internal/notify',
+                json={
+                    'username': inscrito,
+                    'tipo': 'novo_video',
+                    'texto': f"@{channel} publicou: {video_title}",
+                    'link': f"/player/{video_id}",
+                },
+                headers={'X-Internal-Secret': secret},
+                timeout=2,
+            )
+    except Exception as e:
+        print(f"[notificacoes] falha ao notificar inscritos de {channel}: {e}")
 
 os.makedirs(SUBTITLES_FOLDER, exist_ok=True)
 os.makedirs(BANNERS_FOLDER, exist_ok=True)
@@ -66,6 +115,10 @@ def inject_user_settings():
 @studio_app.context_processor
 def inject_static_url():
     return dict(static_url=STATIC_SERVER_URL)
+
+@studio_app.context_processor
+def inject_categorias():
+    return dict(categorias_disponiveis=CATEGORIAS)
 
 # Funções do banco (independentes)
 def get_db():
@@ -115,10 +168,10 @@ def save_video_entry(video_entry):
     if not isinstance(cards, str):
         cards = json.dumps(cards)
     c.execute("""
-        INSERT OR REPLACE INTO videos 
-        (id, filename, filename_144p, filename_360p, filename_480p, title, 
-         description, views, channel, thumb, subtitles, chapters, subtitle_file, status, cards, is_360)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT OR REPLACE INTO videos
+        (id, filename, filename_144p, filename_360p, filename_480p, title,
+         description, views, channel, thumb, subtitles, chapters, subtitle_file, status, cards, is_360, categoria)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         video_entry['id'],
         video_entry.get('filename'),
@@ -135,7 +188,8 @@ def save_video_entry(video_entry):
         video_entry.get('subtitle_file', ''),
         video_entry.get('status', 'publicado'),
         cards,
-        int(video_entry.get('is_360', 0))
+        int(video_entry.get('is_360', 0)),
+        video_entry.get('categoria', ''),
     ))
     conn.commit()
     conn.close()
@@ -162,6 +216,7 @@ def garantir_colunas_novas():
         ("channels", "banner_path", "TEXT"),
         ("videos", "cards", "TEXT DEFAULT '[]'"),
         ("videos", "is_360", "INTEGER DEFAULT 0"),
+        ("videos", "categoria", "TEXT DEFAULT ''"),
     ]:
         try:
             c.execute(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {tipo}")
@@ -374,11 +429,13 @@ def studio_mobile_upload(username):
             'thumb': thumb_filename,
             'subtitles': [],
             'status': 'pendente',
-            'is_360': 1 if request.form.get('is_360') else 0
+            'is_360': 1 if request.form.get('is_360') else 0,
+            'categoria': request.form.get('categoria', '') if request.form.get('categoria') in CATEGORIAS else '',
         }
-        
+
         save_video_entry(video_entry)
-        
+        notificar_inscritos_novo_video(username, title, video_id)
+
         return redirect(f'/lang=mobile/video/{video_id}')
 
     return render_template('studio_mobile.html', username=username)
@@ -477,10 +534,12 @@ def upload_video(username):
         'chapters': chapters,
         'subtitle_file': subtitle_path,
         'status': 'publicado',
-        'is_360': 1 if request.form.get('is_360') else 0
+        'is_360': 1 if request.form.get('is_360') else 0,
+        'categoria': request.form.get('categoria', '') if request.form.get('categoria') in CATEGORIAS else '',
     }
 
     save_video_entry(video_entry)
+    notificar_inscritos_novo_video(username, title, video_id)
 
     return redirect(f'/studio/{username}')
 
@@ -754,6 +813,9 @@ def editar_video(username, video_id):
         video['description'] = request.form.get('description', video.get('description'))
         video['chapters'] = request.form.get('chapters', video.get('chapters', ''))
         video['is_360'] = 1 if request.form.get('is_360') else 0
+        nova_categoria = request.form.get('categoria', '')
+        if nova_categoria in CATEGORIAS:
+            video['categoria'] = nova_categoria
 
         cards_texto = request.form.get('cards', '')
         video['cards'] = _parse_cards(cards_texto)

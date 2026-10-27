@@ -1,0 +1,47 @@
+PONTE IA <-> CLIPPY VIDEOS
+==========================
+
+1) Copie ia_api.py para a MESMA pasta do app.py do Clippy.
+
+2) No app.py do Clippy, depois de definir get_db, get_user_config_path,
+   precisa_supervisao e pode_assistir_video, e ANTES de "if __name__ == '__main__':",
+   adicione:
+
+       from ia_api import register_ia_api
+       register_ia_api(app, get_db, COMMENTS_FOLDER, UPLOAD_FOLDER,
+                       get_user_config_path, pode_assistir_video,
+                       precisa_supervisao=precisa_supervisao,
+                       subtitles_folder=SUBTITLES_FOLDER)
+
+   ATENCAO: no app.py enviado, SUBTITLES_FOLDER é usado mas não aparece definido
+   (linhas ~2299 e ~2320). Confira se existe; se não, defina por exemplo:
+       SUBTITLES_FOLDER = os.path.join(UPLOAD_FOLDER, 'subtitles')
+   (e crie a pasta). Esse é o mesmo local de onde as legendas .srt são lidas.
+
+3) Gere uma chave secreta:
+       python -c "import secrets;print(secrets.token_urlsafe(32))"
+   - Lado Clippy: defina a variável de ambiente IA_API_KEY com a chave
+     (ou salve a chave num arquivo ia_api.key ao lado do app.py).
+     Sem chave, a ponte fica DESATIVADA.
+   - Lado IA: defina IA_CLIPPY_KEY (no iniciar.bat) com a MESMA chave.
+
+4) Reinicie o Clippy. No console deve aparecer "[ia_api] Ponte da IA ATIVA".
+
+5) Endereço: se a IA roda na mesma máquina do Clippy, o padrão
+   IA_CLIPPY_URL=http://127.0.0.1:8000 (porta do Waitress) funciona. Se estiver em
+   outra máquina use o endereço do Clippy (ex.: https://192.168.0.150) e, com
+   certificado autoassinado, IA_CLIPPY_VERIFY=0.
+
+6) SEGURANÇA
+   - Bloqueie /api/ia/ para a internet no Nginx (só a IA precisa acessar):
+         location /api/ia/ { allow 127.0.0.1; allow 192.168.0.0/16; deny all; }
+   - A ponte só entrega vídeos liberados (não 'bloqueado' e dentro da classificação
+     da conta). Contas em modo infantil não entram na IA (IA_API_ALLOW_KIDS=1 libera).
+   - Limite de 10 senhas erradas por usuário a cada 10 minutos.
+
+7) (Opcional) Botão "Perguntar à IA" no player.html:
+       <a href="http://ENDERECO_DA_IA:7078/?video={{ video.id }}" target="_blank">🤖 Perguntar à IA</a>
+   O link pede login Clippy e abre direto o chat sobre aquele vídeo.
+
+Rotas: GET /api/ia/ping, POST /api/ia/login, GET /api/ia/videos?q=,
+       GET /api/ia/video/<id>  (todas exigem o header X-IA-Key).

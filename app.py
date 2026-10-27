@@ -1,6 +1,19 @@
-# app.py
 STATIC_SERVER_URL = "https://192.168.0.150:7071/"
 STUDIO_BASE_URL = "https://192.168.0.150:7072/"  # URL do servidor independente
+
+# Serviços em Go: chat ao vivo (por live_id) e notificações da conta.
+# Cada um é um processo Go separado, na mesma máquina, seguindo o mesmo
+# padrão dos outros serviços (static/studio/auth) -- porta própria,
+# HTTPS direto com os certificados já usados no projeto.
+GO_LIVECHAT_URL = "https://192.168.0.150:7079/"
+GO_NOTIFICATIONS_URL = "https://192.168.0.150:7080/"
+# Chamada servidor-a-servidor (Flask -> Go) para criar notificações.
+# Usa HTTP simples em loopback por padrão -- troque para a URL pública
+# acima se o Go não estiver rodando na mesma máquina que o Flask (o
+# valor real, considerando a variável de ambiente, é resolvido logo
+# abaixo, depois do "import os").
+GO_NOTIFICATIONS_INTERNAL_URL = 'http://127.0.0.1:7080/'
+
 import os
 import json
 import uuid
@@ -9,6 +22,14 @@ import secrets
 import requests
 import subprocess
 import sqlite3
+import hmac
+import hashlib
+import base64
+import time
+
+GO_NOTIFICATIONS_INTERNAL_URL = os.environ.get(
+    'GO_NOTIFICATIONS_INTERNAL_URL', GO_NOTIFICATIONS_INTERNAL_URL
+)
 from urllib.parse import urlparse
 from algoritmo import (
     feed_em_alta,
@@ -44,7 +65,18 @@ else:
     UPLOAD_FOLDER = 'static/uploads'
     CHAT_FILES_FOLDER = 'static/chat_uploads'
 
+# ---------- Sistema de categorias de vídeo ----------
+# Lista fixa (mais simples de manter em dois processos -- app.py e
+# studio.py -- do que uma tabela nova só pra isso). Pra adicionar uma
+# categoria, basta incluir aqui e no CATEGORIAS de studio.py.
+CATEGORIAS = [
+    'Jogos', 'Música', 'Educação', 'Entretenimento', 'Esportes',
+    'Notícias', 'Tecnologia', 'Vlogs', 'Humor', 'Ciência', 'Outros',
+]
+
 COMMENTS_FOLDER = 'coments'  # Pasta de comentários (igual nos dois sistemas)
+SUBTITLES_FOLDER = os.path.join(UPLOAD_FOLDER, 'subtitles')
+os.makedirs(SUBTITLES_FOLDER, exist_ok=True)
 
 # App
 app = Flask(__name__)
@@ -395,6 +427,7 @@ def garantir_colunas_novas():
         ("channels", "banner_path", "TEXT"),
         ("videos", "cards", "TEXT DEFAULT '[]'"),
         ("videos", "is_360", "INTEGER DEFAULT 0"),
+        ("videos", "categoria", "TEXT DEFAULT ''"),
     ]:
         try:
             c.execute(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {tipo}")
@@ -402,6 +435,63 @@ def garantir_colunas_novas():
         except sqlite3.OperationalError:
             pass
     conn.close()
+
+# ---------- Token compartilhado com os serviços em Go ----------
+# Os serviços de chat ao vivo e notificações (em Go) precisam saber quem
+# é o usuário logado sem reimplementar o parsing do cookie de sessão do
+# Flask. Em vez disso, o Flask assina um token curto (usuário + validade
+# + HMAC-SHA256) com um segredo compartilhado, e o Go só valida a
+# assinatura -- o mesmo esquema que cluster.py já usa entre servidores.
+GO_SHARED_SECRET_PATH = os.path.join(os.path.dirname(__file__), 'go_shared_secret.txt')
+
+def get_go_shared_secret():
+    if not os.path.exists(GO_SHARED_SECRET_PATH):
+        with open(GO_SHARED_SECRET_PATH, 'w', encoding='utf-8') as f:
+            f.write(secrets.token_hex(32))
+    with open(GO_SHARED_SECRET_PATH, 'r', encoding='utf-8') as f:
+        return f.read().strip()
+
+GO_SHARED_SECRET = get_go_shared_secret()
+
+def gerar_go_token(username, ttl=3600):
+    """Gera um token "username.validade.assinatura" que os serviços Go
+    conseguem validar sozinhos (ver go_services/*/main.go -> validarToken)."""
+    expira = int(time.time()) + ttl
+    payload = f"{username}.{expira}".encode('utf-8')
+    assinatura = hmac.new(GO_SHARED_SECRET.encode('utf-8'), payload, hashlib.sha256).hexdigest()
+    return base64.urlsafe_b64encode(payload).decode('utf-8') + '.' + assinatura
+
+def notificar_usuario(username, tipo, texto, link=''):
+    """Pede pro serviço Go de notificações criar + empurrar (push) uma
+    notificação para 'username'. Best-effort: se o serviço Go estiver
+    fora do ar, só loga e segue a vida -- nunca derruba a ação que
+    disparou a notificação (inscrição, upload, live, etc.)."""
+    try:
+        requests.post(
+            GO_NOTIFICATIONS_INTERNAL_URL.rstrip('/') + '/internal/notify',
+            json={'username': username, 'tipo': tipo, 'texto': texto, 'link': link},
+            headers={'X-Internal-Secret': GO_SHARED_SECRET},
+            timeout=2,
+        )
+    except requests.RequestException as e:
+        print(f"[notificacoes] não foi possível notificar {username}: {e}")
+
+@app.context_processor
+def inject_go_urls():
+    return dict(go_livechat_url=GO_LIVECHAT_URL, go_notifications_url=GO_NOTIFICATIONS_URL)
+
+@app.context_processor
+def inject_categorias():
+    return dict(categorias_disponiveis=CATEGORIAS)
+
+@app.route('/api/go-token')
+def api_go_token():
+    """Usado pelo JS do site (sino de notificações, chat da live) pra
+    conseguir um token de curta duração pros serviços em Go."""
+    username = session.get('username')
+    if not username:
+        return jsonify({"error": "login_required"}), 401
+    return jsonify({"token": gerar_go_token(username), "username": username})
 
 # Initialize DB and maybe migrate
 init_db()
@@ -436,9 +526,9 @@ def save_video_entry(video_entry):
         INSERT OR REPLACE INTO videos (
             id, filename, filename_144p, filename_480p,
             title, description, views, channel, thumb,
-            subtitles, status, created_at, is_360
+            subtitles, status, created_at, is_360, categoria
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         video_entry['id'],
         video_entry.get('filename'),
@@ -452,7 +542,8 @@ def save_video_entry(video_entry):
         subtitles_json, # Agora a variável existe acima
         video_entry.get('status', 'pendente'),
         video_entry.get('created_at'),
-        int(video_entry.get('is_360', 0))
+        int(video_entry.get('is_360', 0)),
+        video_entry.get('categoria', ''),
     ))
     conn.commit()
     conn.close()
@@ -795,7 +886,8 @@ def index():
                 'subtitles': [],
                 'status': 'pendente',
                 'created_at': datetime.utcnow().isoformat(),
-                'is_360': 1 if request.form.get('is_360') else 0
+                'is_360': 1 if request.form.get('is_360') else 0,
+                'categoria': request.form.get('categoria', '') if request.form.get('categoria') in CATEGORIAS else '',
             }
             save_video_entry(video_entry)
  
@@ -918,6 +1010,20 @@ def api_live_create():
         "started_at": datetime.utcnow().isoformat()
     }
     save_live(live)
+
+    # Avisa os inscritos do canal que a live começou
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT username FROM subscribers WHERE channel = ?", (username,))
+    inscritos = [r['username'] for r in c.fetchall()]
+    conn.close()
+    for inscrito in inscritos:
+        notificar_usuario(
+            inscrito, 'live',
+            f"@{username} está ao vivo: {title}",
+            link=f"/lives/{live_id}",
+        )
+
     return jsonify({"id": live_id, "title": title, "channel": username})
 
 @app.route('/api/live/stop', methods=['POST'])
@@ -1050,9 +1156,12 @@ def comentar(video_id):
 @app.route('/buscar')
 def buscar():
     query = request.args.get('q', '').lower()
+    categoria = request.args.get('categoria', '')
     videos = load_videos()
     if query:
         videos = [v for v in videos if (v.get('title') or '').lower().find(query) != -1 or (v.get('description') or '').lower().find(query) != -1]
+    if categoria:
+        videos = [v for v in videos if (v.get('categoria') or '') == categoria]
 
     canais_list = []
     conn = get_db()
@@ -1068,7 +1177,13 @@ def buscar():
                 'bio': bio
             })
     conn.close()
-    return render_template('buscar.html', videos=videos, canais=canais_list, query=query)
+    return render_template('buscar.html', videos=videos, canais=canais_list, query=query, categoria_atual=categoria)
+
+@app.route('/categoria/<nome>')
+def categoria_videos(nome):
+    if nome not in CATEGORIAS:
+        abort(404)
+    return redirect(url_for('buscar', categoria=nome))
 
 # ---- Users: login/cadastro ----
 
@@ -1193,6 +1308,11 @@ def inscrever(username):
     c.execute("INSERT INTO subscribers (channel, username) VALUES (?, ?)", (username, inscrito))
     conn.commit()
     conn.close()
+    notificar_usuario(
+        username, 'inscricao',
+        f"@{inscrito} se inscreveu no seu canal.",
+        link=f"/@{inscrito}",
+    )
     flash(f"Inscrição no canal @{username} feita com sucesso!")
     return redirect(url_for('canal', username=username))
 
@@ -2047,6 +2167,30 @@ def conta():
                            channel=channel,
                            studio_link=studio_link)
 
+def _max_classificacao_sessao():
+    """Classificação indicativa máxima permitida pro usuário da sessão atual
+    (ou '18' se não houver login / config salva)."""
+    max_class = '18'
+    username = session.get('username')
+    if username:
+        path = get_user_config_path(username)
+        if os.path.exists(path):
+            with open(path, 'r', encoding='utf-8') as f:
+                configs = json.load(f)
+            max_class = configs.get('classificacao_maxima', '18')
+    return max_class
+
+
+def _video_simples(v):
+    return {
+        'id':      v['id'],
+        'title':   v['title'],
+        'views':   v.get('views', 0),
+        'channel': v.get('channel'),
+        'thumb':   v.get('thumb', ''),
+    }
+
+
 @app.route('/api/videos')
 def api_videos():
     page     = int(request.args.get('page', 1))
@@ -2163,6 +2307,92 @@ def api_video_detail(video_id):
         'qualities': qualidades,
         'subtitle_url': (f"{STATIC_SERVER_URL}uploads/subtitles/{video['subtitle_file']}"
                           if video.get('subtitle_file') else ''),
+        'static_url': STATIC_SERVER_URL,
+    })
+
+# ==================== API: BUSCA (usado pelo app Roku) ====================
+@app.route('/api/buscar')
+def api_buscar():
+    query = request.args.get('q', '').strip().lower()
+    max_class = _max_classificacao_sessao()
+
+    all_videos = load_videos()
+    videos_permitidos = [
+        v for v in all_videos
+        if pode_assistir_video(v.get('classificacao', 'L'), max_class)
+    ]
+
+    if query:
+        videos_resultado = [
+            v for v in videos_permitidos
+            if query in (v.get('title') or '').lower()
+            or query in (v.get('description') or '').lower()
+        ]
+    else:
+        videos_resultado = []
+
+    canais_resultado = []
+    if query:
+        conn = get_db()
+        c = conn.cursor()
+        c.execute("SELECT username, display_name, bio FROM channels")
+        for row in c.fetchall():
+            display_name = row['display_name'] or ''
+            bio = row['bio'] or ''
+            if query in (row['username'] or '').lower() or query in display_name.lower() or query in bio.lower():
+                canais_resultado.append({
+                    'username': row['username'],
+                    'display_name': display_name,
+                })
+        conn.close()
+
+    return jsonify({
+        'query': query,
+        'videos': [_video_simples(v) for v in videos_resultado[:60]],
+        'canais': canais_resultado[:20],
+        'static_url': STATIC_SERVER_URL,
+    })
+
+# ==================== API: CANAL (usado pelo app Roku) ====================
+@app.route('/api/channel/<username>')
+def api_channel(username):
+    channel_path = os.path.join('channels', f'@{username}')
+    info_path = os.path.join(channel_path, 'info.txt')
+
+    display_name = username
+    bio = ''
+    if os.path.exists(info_path):
+        with open(info_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            if lines:
+                display_name = lines[0].strip()
+            if len(lines) > 1:
+                bio = lines[1].strip()
+
+    max_class = _max_classificacao_sessao()
+    videos = [
+        v for v in load_videos()
+        if v.get('channel') == username and pode_assistir_video(v.get('classificacao', 'L'), max_class)
+    ]
+
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) as n FROM subscribers WHERE channel = ?", (username,))
+    row = c.fetchone()
+    conn.close()
+    subscribers = row['n'] if row else 0
+
+    foto_url = ''
+    if os.path.exists(os.path.join(channel_path, 'foto.jpg')):
+        foto_url = f'/channels/@{username}/foto.jpg'
+
+    return jsonify({
+        'username': username,
+        'display_name': display_name,
+        'bio': bio,
+        'subscribers': subscribers,
+        'foto_url': foto_url,
+        'videos': [_video_simples(v) for v in videos],
         'static_url': STATIC_SERVER_URL,
     })
 
@@ -2292,7 +2522,12 @@ def logout():
     return redirect(url_for('login'))
 
 # Run
-# Run
+from ia_api import register_ia_api
+register_ia_api(app, get_db, COMMENTS_FOLDER, UPLOAD_FOLDER,
+                get_user_config_path, pode_assistir_video,
+                precisa_supervisao=precisa_supervisao,
+                subtitles_folder=SUBTITLES_FOLDER)
+
 if __name__ == '__main__':
     # ATENÇÃO: isto aqui é só para desenvolvimento local, sem HTTPS e sem
     # debug (debug=True nunca deve rodar num servidor exposto à internet —
