@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ display_name }} | Clippy</title>
+    <title>{{ display_name }} - Clippy Videos</title>
     <link rel="icon" href="{{ static_url }}/favicon.ico" type="image/x-icon">
     <link href="{{ static_url }}scripts/sidebar-static.css" rel="stylesheet">
     <style>
@@ -178,7 +178,7 @@
         <a href="/" class="menu-item"><img src="{{ static_url }}home.png"> {{ t.menu.inicio }}</a>
         <a href="/buscar" class="menu-item"><img src="{{ static_url }}search.png"> {{ t.menu.pesquisar }}</a>
         <a href="/shorts" class="menu-item"><img src="{{ static_url }}tia.png"> {{ t.menu.shorts }}</a>
-        <a href="{{ studio_link }}" {% if studio_link %} href="https://192.168.0.150:7072/create" {% endif %} class="menu-item"><img src="{{ static_url }}studio.png"> {{ t.menu.studio }}</a>
+        <a href="{{ STUDIO_BASE_URL }}/{{ username }}" {% if studio_link %} href="https://192.168.0.150:7072/create" {% endif %} class="menu-item"><img src="{{ static_url }}studio.png"> {{ t.menu.studio }}</a>
         <a href="/aovivo" class="menu-item"><img src="{{ static_url }}w.png"> {{ t.menu.ao_vivo }}</a>
         <hr style="border: 0.5px solid #555; margin: 20px 0;">
         <a href="/conta" class="menu-item"><img src="{{ static_url }}user.png"> {{ t.menu.conta }}</a>

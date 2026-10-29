@@ -242,6 +242,144 @@
       border-radius: 20px;
       cursor: pointer;
     }
+
+    /* ==== RESPONSIVO: telas menores (tablet) ====
+       Estas regras vêm depois das originais no mesmo arquivo, então
+       elas "ganham" nos empates de especificidade -- não precisam
+       saber os valores exatos do player.css externo, só diminuir o
+       que já existe. */
+    @media (max-width: 768px) {
+      .btn {
+        width: 34px;
+        height: 34px;
+        padding: 7px;
+      }
+      .btn img {
+        width: 20px;
+        height: 20px;
+      }
+      .pv-controls {
+        gap: 6px;
+      }
+      .pv-time {
+        font-size: 12px;
+      }
+      .volume-container {
+        width: 90px;
+        gap: 5px;
+      }
+      .pv-title {
+        font-size: 15px;
+        padding: 5px 10px;
+      }
+      .current-chapter {
+        font-size: 12px;
+      }
+      .badge-360 {
+        font-size: 10px;
+        padding: 4px 10px;
+        top: 10px;
+      }
+      .btn-reset-360 {
+        font-size: 10px;
+        padding: 4px 8px;
+        top: 8px;
+        right: 10px;
+      }
+      #previewCanvas {
+        width: 130px;
+        height: 73px;
+      }
+      .cards-panel,
+      .card-toast {
+        width: 200px;
+      }
+      .card-toast img,
+      .card-item img {
+        width: 52px;
+      }
+      #centerIconImg {
+        width: 54px !important;
+        height: 54px !important;
+      }
+    }
+
+    /* ==== RESPONSIVO: celular ==== */
+    @media (max-width: 480px) {
+      .btn {
+        width: 28px;
+        height: 28px;
+        padding: 5px;
+      }
+      .btn img {
+        width: 16px;
+        height: 16px;
+      }
+      .pv-ui {
+        padding: 8px 10px;
+      }
+      .pv-controls {
+        gap: 4px;
+      }
+      .pv-time {
+        font-size: 11px;
+      }
+      /* Em telas bem pequenas o slider de volume some (fica só o
+         ícone, que alterna mute) -- não cabe tudo numa barra só. */
+      .volume-container {
+        width: auto;
+      }
+      .volume-slider {
+        display: none;
+      }
+      .pv-title {
+        font-size: 13px;
+        padding: 4px 8px;
+        max-width: 70%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .current-chapter {
+        font-size: 11px;
+      }
+      .badge-360 {
+        font-size: 9px;
+        padding: 3px 8px;
+      }
+      .btn-reset-360 {
+        font-size: 9px;
+        padding: 3px 7px;
+      }
+      #previewCanvas {
+        width: 100px;
+        height: 56px;
+      }
+      .cards-panel,
+      .card-toast {
+        width: 160px;
+      }
+      .card-toast {
+        padding: 8px 20px 8px 8px;
+      }
+      .card-toast img,
+      .card-item img {
+        width: 40px;
+      }
+      .card-item span,
+      .card-toast .toast-titulo {
+        font-size: 11px;
+      }
+      #cardToastContainer {
+        top: 10px;
+        right: 10px;
+        gap: 6px;
+      }
+      #centerIconImg {
+        width: 40px !important;
+        height: 40px !important;
+      }
+    }
   </style>
 </head>
 <body>
