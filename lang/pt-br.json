@@ -1,0 +1,88 @@
+{
+    "app": {
+        "nome": "Clippy Videos"
+    },
+    "menu": {
+        "inicio": "Início",
+        "pesquisar": "Pesquisar",
+        "shorts": "Shorts",
+        "studio": "Studio",
+        "ao_vivo": "Ao Vivo",
+        "conta": "Conta",
+        "historico": "Histórico",
+        "buscar_contas": "Buscar contas",
+        "conversas": "Conversas",
+        "ia": "IA",
+        "configuracoes": "Configurações",
+        "sobre": "Sobre",
+        "ajuda": "Ajuda"
+    },
+    "feed": {
+        "em_alta": "Em Alta",
+        "recentes": "Recentes",
+        "de_seus_canais": "De Seus Canais",
+        "nenhum_video": "Nenhum vídeo disponível.",
+        "nenhum_video_recente": "Nenhum vídeo recente.",
+        "visualizacoes": "visualizações",
+        "postado": "postado",
+        "badge_em_alta": "🔥 Em Alta",
+        "carregando": "Carregando mais vídeos...",
+        "fim": "Fim dos vídeos",
+        "login_necessario": "Faça login para ver vídeos dos seus canais",
+        "entrar_conta": "Entrar na conta",
+        "sem_inscricoes": "Você ainda não se inscreveu em nenhum canal",
+        "descobrir_canais": "Descobrir canais"
+    },
+    "configs": {
+        "titulo_pagina": "Configurações",
+        "titulo": "Minhas Configurações",
+        "modo_infantil_titulo": "Modo infantil ativado!",
+        "modo_infantil_texto": "Um responsável precisa confirmar as configurações para liberar funções como playlists, comentários e chats.",
+        "modo_infantil_link": "Configurar como responsável →",
+        "cor_fundo": "Cor de Fundo:",
+        "sua_idade": "Sua Idade:",
+        "idioma": "Idioma:",
+        "salvar": "Salvar Alterações",
+        "voltar": "Voltar",
+        "anos": "anos",
+        "mais_de_20_anos": "+20 anos"
+    },
+    "buscar": {
+        "titulo_pagina": "buscar",
+        "videos": "Vídeos",
+        "buscar_videos": "Buscar vídeos e canais",
+        "nenhum_video": "Nenhum vídeo encontrado.",
+        "canais": "Canais",
+        "nenhum_canal": "Nenhum canal encontrado.",
+        "input": "Digite o título, descrição ou nome do canal..."
+    },
+   "canal": {
+       "sem_banner": "sem banner definido",
+       "inscritos": "inscritos",
+       "desinscrever": "Desinscrever-se",
+       "inscrever": "Inscrever-se",
+       "sem_videos": "Este canal ainda não possui vídeos."
+   },
+   "login": {
+       "lembrar": "Lembrar de mim",
+       "cadastro": "Cadastro",
+       "cadastrar": "Cadastrar",
+       "entrar": "Entrar"
+   },
+   "sobre": {
+       "titulo": "Sobre o projeto Clippy Videos",
+       "descricao": "O Clippy Videos é um projeto de código aberto que visa fornecer uma alternativa ao YouTube, com foco em privacidade, simplicidade e liberdade. Ele é construído com tecnologias modernas e é totalmente gratuito para uso.",
+       "versao": "Versão"
+   },
+   "ajuda": {
+         "titulo": "Ajuda",
+         "introducao": "Introdução",
+         "como_usar": "Como Usar",
+            "faq": "FAQ",
+            "contato": "Contato",
+            "introducao_texto": "Bem-vindo ao Clippy Videos! Este é um guia para ajudá-lo a entender como usar nossa plataforma.",
+            "como_usar_texto": "Para usar o Clippy Videos, basta navegar pelos vídeos disponíveis, usar a barra de busca para encontrar conteúdos específicos e interagir com os vídeos através de curtidas, comentários e compartilhamentos. Você também pode criar uma conta para acessar recursos adicionais, como playlists e histórico de visualizações.",
+            "faq_texto": "Perguntas Frequentes: Posso enviar meus próprios vídeos? - Sim, você pode enviar vídeos através do Studio. Quais navegadores são suportados? - O Clippy Videos funciona nos principais navegadores modernos (Chrome, Firefox, Edge, Safari, Brave).",
+            "contato_texto": "Se precisar de ajuda adicional, entre em contato com o nosso time de suporte através do email: suporte@clippyvideos.com"
+    }
+}

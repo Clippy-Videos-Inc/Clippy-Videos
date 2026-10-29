@@ -1,0 +1,88 @@
+{
+    "app": {
+        "nome": "Clippy Videos"
+    },
+    "menu": {
+        "inicio": "Home",
+        "pesquisar": "Search",
+        "shorts": "Shorts",
+        "studio": "Studio",
+        "ao_vivo": "Live",
+        "conta": "Account",
+        "historico": "History",
+        "buscar_contas": "Find accounts",
+        "conversas": "Chats",
+        "ia": "AI",
+        "configuracoes": "Settings",
+        "sobre": "About",
+        "ajuda": "Help"
+    },
+    "feed": {
+        "em_alta": "Trending",
+        "recentes": "Recent",
+        "de_seus_canais": "From Your Channels",
+        "nenhum_video": "No videos available.",
+        "nenhum_video_recente": "No recent videos.",
+        "visualizacoes": "views",
+        "postado": "posted",
+        "badge_em_alta": "🔥 Trending",
+        "carregando": "Loading more videos...",
+        "fim": "End of videos",
+        "login_necessario": "Log in to see videos from your channels",
+        "entrar_conta": "Log in",
+        "sem_inscricoes": "You haven't subscribed to any channel yet",
+        "descobrir_canais": "Discover channels"
+    },
+    "configs": {
+        "titulo_pagina": "Settings",
+        "titulo": "My Settings",
+        "modo_infantil_titulo": "Kids mode enabled!",
+        "modo_infantil_texto": "A guardian needs to confirm the settings to unlock features like playlists, comments and chats.",
+        "modo_infantil_link": "Set up as guardian →",
+        "cor_fundo": "Background Color:",
+        "sua_idade": "Your Age:",
+        "idioma": "Language:",
+        "salvar": "Save Changes",
+        "voltar": "Back",
+        "anos": "years old",
+        "mais_de_20_anos": "+20 years old"
+    },
+    "buscar": {
+        "titulo_pagina": "search",
+        "videos": "Videos",
+        "buscar_videos": "Search videos and channels",
+        "nenhum_video": "No videos found.",
+        "canais": "Channels",
+        "nenhum_canal": "No channels found.",
+        "input": "Enter the title, description, or channel name..."
+    },
+    "canal": {
+       "sem_banner": "No banner set",
+       "inscritos": "Subscribers",
+       "desinscrever": "Unsubscribe",
+       "inscrever": "Subscribe",
+       "sem_videos": "This channel does not have any videos yet."
+   },
+   "login": {
+       "lembrar": "Remember me",
+       "cadastro": "Register",
+       "cadastrar": "Sign up",
+         "entrar": "Log in"
+   },
+   "sobre": {
+       "titulo": "About the Clippy Videos Project",
+       "descricao": "Clippy Videos is an open-source project aimed at providing an alternative to YouTube, focusing on privacy, simplicity, and freedom. It is built with modern technologies and is completely free for use.",
+       "versao": "Version"
+   },
+   "ajuda": {
+       "titulo": "Help",
+         "introducao": "Introduction",
+         "como_usar": "How to Use",
+            "faq": "Frequently Asked Questions",
+            "contato": "Contact",
+            "introducao_texto": "Welcome to Clippy Videos! This is a guide to help you understand how to use our platform.",
+            "como_usar_texto": "To use Clippy Videos, simply browse the available videos, use the search bar to find specific content, and click on a video to watch and see details.",
+            "faq_texto": "Perguntas Frequentes: Posso enviar meus próprios vídeos? - Sim, você pode enviar vídeos através do Studio. Quais navegadores são suportados? - O Clippy Videos funciona nos principais navegadores modernos (Chrome, Firefox, Edge, Safari, Brave).",
+            "contato_texto": "Se precisar de ajuda adicional, entre em contato com o nosso time de suporte através do email: suporte@clippyvideos.com"
+   }
+}
