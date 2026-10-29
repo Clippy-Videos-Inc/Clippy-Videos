@@ -1,0 +1,4 @@
+*.key
+*.pem
+go_shared_secret.txt
+*.db
