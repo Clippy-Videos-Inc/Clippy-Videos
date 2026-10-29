@@ -1,1 +1,3 @@
-o Clippy Videos é um site feito com IA e por eu também (JP pixelado), não copie o projeto com outro nome! isso não é um template de aplicativo flask, isso é uma plataforma de videos inteira.
+# Avisos Importantes
+
+Não Copie o Projeto sem dar Os Créditos a Mim (Se Você não Modificar o Projeto e Rodar em Produção.)
