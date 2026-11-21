@@ -26,6 +26,7 @@ import hmac
 import hashlib
 import base64
 import time
+import bcrypt
 
 GO_NOTIFICATIONS_INTERNAL_URL = os.environ.get(
     'GO_NOTIFICATIONS_INTERNAL_URL', GO_NOTIFICATIONS_INTERNAL_URL
@@ -76,14 +77,35 @@ CATEGORIAS = [
 
 COMMENTS_FOLDER = 'coments'  # Pasta de comentários (igual nos dois sistemas)
 SUBTITLES_FOLDER = os.path.join(UPLOAD_FOLDER, 'subtitles')
+BANNERS_FOLDER = os.path.join(UPLOAD_FOLDER, 'banners')
 os.makedirs(SUBTITLES_FOLDER, exist_ok=True)
+os.makedirs(BANNERS_FOLDER, exist_ok=True)
+
+# ---------- Chave secreta do Flask (fora do código-fonte) ----------
+# Antes a chave ficava fixa aqui no código (literal, versionada no git).
+# Agora segue o mesmo padrão já usado pro segredo compartilhado com o Go
+# (GO_SHARED_SECRET_PATH / get_go_shared_secret, logo abaixo): um arquivo
+# local gerado automaticamente na primeira execução, nunca commitado.
+FLASK_SECRET_KEY_PATH = os.environ.get(
+    'CLIPPY_FLASK_SECRET_PATH',
+    os.path.join(os.path.dirname(__file__), 'flask_secret_key.txt'),
+)
+
+
+def get_flask_secret_key():
+    if not os.path.exists(FLASK_SECRET_KEY_PATH):
+        with open(FLASK_SECRET_KEY_PATH, 'w', encoding='utf-8') as f:
+            f.write(secrets.token_hex(32))
+    with open(FLASK_SECRET_KEY_PATH, 'r', encoding='utf-8') as f:
+        return f.read().strip()
+
 
 # App
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = int(5 * 1024 * 1024 * 1024)
 app.config['UPLOAD_FOLDER_CHAT'] = os.path.join('static', 'chat_uploads')
-app.secret_key = 'WsTDo1zxc0oxx2o9Xo*188m'
+app.secret_key = get_flask_secret_key()
 
 # Sistema de "Lembrar de mim": quando marcado, a sessão vira permanente e
 # dura o tempo abaixo em vez de expirar ao fechar o navegador.
@@ -287,6 +309,21 @@ def init_db():
         PRIMARY KEY(video_id, username)
     )
     """)
+
+    # login_attempts: controla tentativas de login pra limitar força bruta.
+    # Fica no app.db compartilhado (não em memória) porque app.py e
+    # studio.py são processos separados e precisa sobreviver a restart.
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS login_attempts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT,
+        ip TEXT,
+        sucesso INTEGER DEFAULT 0,
+        criado_em TEXT
+    )
+    """)
+    c.execute("CREATE INDEX IF NOT EXISTS idx_login_attempts_username ON login_attempts(username, criado_em)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts(ip, criado_em)")
 
     # Commit uma única vez no final
     conn.commit()
@@ -606,12 +643,67 @@ def get_channel_info(username):
     conn.close()
     return dict(r) if r else None
 
+# ---------- Senhas: hashing com bcrypt (igual ao auth_server.py) ----------
+# Antes, tanto a senha de usuário (users.password) quanto a de canal
+# (channels.password) ficavam gravadas em texto puro e eram comparadas
+# com "==". Agora usam bcrypt, igual o auth_server.py já fazia. Pra não
+# travar contas/canais já existentes (que ainda têm a senha antiga em
+# texto puro no banco), check_password aceita os dois formatos: se bater
+# um hash bcrypt, ótimo; se não for um hash bcrypt, cai pro comparativo
+# antigo como fallback -- e quem chama o check (login, verify_channel_password)
+# aproveita pra re-salvar a senha já hasheada (self-heal automático, sem
+# precisar rodar nenhuma migração em lote à parte).
+
+def _parece_hash_bcrypt(valor):
+    if not valor or not isinstance(valor, str):
+        return False
+    return valor.startswith('$2a$') or valor.startswith('$2b$') or valor.startswith('$2y$')
+
+
+def _senha_bytes_bcrypt(senha):
+    """bcrypt só aceita até 72 bytes e a lib (bcrypt>=4) dá ValueError pra
+    senha maior em vez de truncar sozinha -- então truncamos aqui, SEMPRE
+    do mesmo jeito (hash e checagem), senão uma senha "longa" (inclusive
+    uma senha normal cheia de acento -- ç/ã/õ/é ocupam mais de 1 byte em
+    UTF-8 cada) nunca mais bate com o hash dela mesma. Corta em bytes, não
+    em caracteres -- não precisa decodificar de volta, o bcrypt trabalha
+    direto com bytes."""
+    return senha.encode('utf-8')[:72]
+
+
+def hash_password(senha_pura):
+    return bcrypt.hashpw(_senha_bytes_bcrypt(senha_pura), bcrypt.gensalt()).decode('utf-8')
+
+
+def check_password(senha_digitada, senha_salva):
+    """Retorna (confere: bool, precisa_rehash: bool). Nunca estoura exceção
+    mesmo se senha_digitada vier None/vazia (ex.: campo não enviado no
+    formulário) -- nesse caso só dá "não confere", igual uma senha errada."""
+    if not senha_salva or not senha_digitada:
+        return False, False
+    if _parece_hash_bcrypt(senha_salva):
+        try:
+            ok = bcrypt.checkpw(_senha_bytes_bcrypt(senha_digitada), senha_salva.encode('utf-8'))
+        except (ValueError, TypeError, AttributeError) as e:
+            if os.environ.get('CLIPPY_DEBUG_SENHA') == '1':
+                print(f"[DEBUG SENHA] bcrypt.checkpw lançou {type(e).__name__}: {e}")
+            ok = False
+        return ok, False
+    # Legado: senha antiga em texto puro. Compara direto; se bater, quem
+    # chamou deve re-salvar já hasheada (precisa_rehash=True).
+    return senha_digitada == senha_salva, (senha_digitada == senha_salva)
+
+
 def create_channel_record(username, display_name, bio, password, foto_path=None):
     conn = get_db()
     c = conn.cursor()
+    # Sempre grava a senha do canal já hasheada. Se quem chamou já mandou
+    # um hash bcrypt pronto (ex.: round-trip de uma senha que não mudou),
+    # não hasheia de novo.
+    senha_para_salvar = password if _parece_hash_bcrypt(password) else hash_password(password)
     c.execute("""
         INSERT OR REPLACE INTO channels (username, display_name, bio, password, foto_path) VALUES (?, ?, ?, ?, ?)
-    """, (username, display_name, bio, password, foto_path))
+    """, (username, display_name, bio, senha_para_salvar, foto_path))
     conn.commit()
     conn.close()
 
@@ -626,14 +718,101 @@ def load_users():
 def save_user(u):
     conn = get_db()
     c = conn.cursor()
+    senha = u['password']
+    senha_para_salvar = senha if _parece_hash_bcrypt(senha) else hash_password(senha)
     c.execute("INSERT OR REPLACE INTO users (username, nome, email, password) VALUES (?, ?, ?, ?)",
-              (u['username'], u['nome'], u['email'], u['password']))
+              (u['username'], u['nome'], u['email'], senha_para_salvar))
     conn.commit()
     conn.close()
 
-def verify_channel_password(senha_digitada, senha_salva):
-    # Model 1: simple comparison
-    return senha_digitada == senha_salva
+
+def _rehash_senha_usuario(username, senha_pura):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("UPDATE users SET password = ? WHERE username = ?", (hash_password(senha_pura), username))
+    conn.commit()
+    conn.close()
+
+
+def _rehash_senha_canal(username, senha_pura):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("UPDATE channels SET password = ? WHERE username = ?", (hash_password(senha_pura), username))
+    conn.commit()
+    conn.close()
+
+
+def verify_channel_password(senha_digitada, senha_salva, username=None):
+    """Confere a senha do canal (bcrypt, com fallback/self-heal pra texto
+    puro legado). Se 'username' for passado e a senha salva ainda estiver
+    em texto puro, re-hasheia automaticamente após confirmar que bateu."""
+    ok, precisa_rehash = check_password(senha_digitada, senha_salva)
+    if ok and precisa_rehash and username:
+        _rehash_senha_canal(username, senha_digitada)
+    if os.environ.get('CLIPPY_DEBUG_SENHA') == '1':
+        # DEBUG TEMPORÁRIO -- nunca imprime a senha nem o hash inteiro, só
+        # o suficiente pra descobrir onde a comparação está falhando.
+        print(
+            f"[DEBUG SENHA CANAL] username={username!r} "
+            f"senha_digitada_len={len(senha_digitada) if senha_digitada else 0} "
+            f"senha_salva_vazia={not bool(senha_salva)} "
+            f"parece_hash_bcrypt={_parece_hash_bcrypt(senha_salva)} "
+            f"senha_salva_prefixo={senha_salva[:7] if senha_salva else None!r} "
+            f"senha_salva_len={len(senha_salva) if senha_salva else 0} "
+            f"resultado_ok={ok} precisa_rehash={precisa_rehash}"
+        )
+    return ok
+
+
+# ---------- Rate limiting de login (força bruta) ----------
+# Tabela login_attempts (criada em init_db). Bloqueia por username E por
+# IP, o que cobre tanto "alguém tentando adivinhar a senha de uma conta"
+# quanto "alguém tentando várias contas a partir do mesmo IP".
+LOGIN_MAX_TENTATIVAS_USUARIO = 5
+LOGIN_MAX_TENTATIVAS_IP = 20
+LOGIN_JANELA_MINUTOS = 15
+
+
+def _registrar_tentativa_login(username, ip, sucesso):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(
+        "INSERT INTO login_attempts (username, ip, sucesso, criado_em) VALUES (?, ?, ?, ?)",
+        (username or '', ip or '', 1 if sucesso else 0, datetime.now(UTC).isoformat()),
+    )
+    if sucesso:
+        # Login deu certo: limpa o histórico de falhas desse usuário/IP
+        # pra não ficar um bloqueio "sobrando" depois de acertar a senha.
+        c.execute("DELETE FROM login_attempts WHERE (username = ? OR ip = ?) AND sucesso = 0", (username or '', ip or ''))
+    conn.commit()
+    conn.close()
+
+
+def _login_bloqueado(username, ip):
+    """Retorna (bloqueado: bool, motivo: str|None)."""
+    limite = (datetime.now(UTC) - timedelta(minutes=LOGIN_JANELA_MINUTOS)).isoformat()
+    conn = get_db()
+    c = conn.cursor()
+    if username:
+        c.execute(
+            "SELECT COUNT(*) AS n FROM login_attempts WHERE username = ? AND sucesso = 0 AND criado_em > ?",
+            (username, limite),
+        )
+        row = c.fetchone()
+        if row and row['n'] >= LOGIN_MAX_TENTATIVAS_USUARIO:
+            conn.close()
+            return True, f"Muitas tentativas de login para este usuário. Tente novamente em alguns minutos."
+    if ip:
+        c.execute(
+            "SELECT COUNT(*) AS n FROM login_attempts WHERE ip = ? AND sucesso = 0 AND criado_em > ?",
+            (ip, limite),
+        )
+        row = c.fetchone()
+        if row and row['n'] >= LOGIN_MAX_TENTATIVAS_IP:
+            conn.close()
+            return True, f"Muitas tentativas de login a partir deste endereço. Tente novamente em alguns minutos."
+    conn.close()
+    return False, None
 
 # ---------- Helper: format_time & subtitle generation ----------
 
@@ -998,7 +1177,7 @@ def api_live_create():
         return jsonify({"error": "canal não encontrado"}), 404
 
     stored_password = channel.get('password', '')
-    if password != stored_password:
+    if not verify_channel_password(password, stored_password, username=username):
         return jsonify({"error": "senha incorreta"}), 403
 
     live_id = "live_" + uuid.uuid4().hex[:8]
@@ -1205,16 +1384,33 @@ def login():
         destino = request.form.get('next', destino)
         if destino and urlparse(destino).hostname != request.host.split(':')[0]:
             destino = ''
-        
+
+        ip_cliente = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+
+        # Limitação de tentativas: bloqueia antes mesmo de olhar a senha,
+        # por usuário e por IP (ver LOGIN_MAX_TENTATIVAS_* acima).
+        bloqueado, motivo = _login_bloqueado(username, ip_cliente)
+        if bloqueado:
+            return motivo, 429
+
         conn = get_db()
         c = conn.cursor()
-        
+
         # 1. Buscamos a senha E o status PRO ao mesmo tempo
         c.execute("SELECT password, is_pro FROM users WHERE username = ?", (username,))
         user_data = c.fetchone()
         conn.close()
-        
-        if user_data and user_data['password'] == password:
+
+        senha_ok, precisa_rehash = check_password(password, user_data['password']) if user_data else (False, False)
+
+        if user_data and senha_ok:
+            # Senha antiga ainda em texto puro: já que acabou de ser
+            # confirmada, aproveita e salva o hash bcrypt (self-heal).
+            if precisa_rehash:
+                _rehash_senha_usuario(username, password)
+
+            _registrar_tentativa_login(username, ip_cliente, sucesso=True)
+
             # 2. Salvamos tudo na sessão
             session['username'] = username
             session['is_pro'] = user_data['is_pro'] # Agora sim, pegando do banco!
@@ -1223,11 +1419,12 @@ def login():
             #    (dura 30 dias, ver PERMANENT_SESSION_LIFETIME). Se não
             #    marcou, o login some assim que o navegador for fechado.
             session.permanent = bool(lembrar)
-            
+
             return redirect(destino or url_for('index'))
-            
+
+        _registrar_tentativa_login(username, ip_cliente, sucesso=False)
         return 'Login inválido', 401
-        
+
     return render_template('login.html', next=destino)
 
 @app.route('/cadastro', methods=['POST'])
@@ -1245,7 +1442,7 @@ def cadastro():
         conn.close()
         return 'Usuário já existe', 409
     c.execute("INSERT INTO users (username, nome, email, password) VALUES (?, ?, ?, ?)",
-              (username, nome, email, password))
+              (username, nome, email, hash_password(password)))
     conn.commit()
     conn.close()
     # also create users folder for studio link usage
@@ -2067,7 +2264,10 @@ def supervisao_confirmar():
                 print(f"[DEBUG ETAPA 3] Usuário não encontrado: {responsavel_username}")
                 return redirect(url_for('supervisao_confirmar', etapa=3))
     
-            if user_data['password'] != senha_responsavel:
+            senha_resp_ok, resp_precisa_rehash = check_password(senha_responsavel, user_data['password'])
+            if resp_precisa_rehash:
+                _rehash_senha_usuario(responsavel_username, senha_responsavel)
+            if not senha_resp_ok:
                 flash("A senha do responsável está incorreta. Verifique e tente novamente.", "error")
                 print(f"[DEBUG ETAPA 3] Senha incorreta para {responsavel_username}")
                 return redirect(url_for('supervisao_confirmar', etapa=3))

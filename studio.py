@@ -9,6 +9,7 @@ import json
 import functools
 import secrets
 import requests
+import bcrypt
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
 from werkzeug.utils import secure_filename
@@ -73,13 +74,36 @@ def notificar_inscritos_novo_video(channel, video_title, video_id):
 os.makedirs(SUBTITLES_FOLDER, exist_ok=True)
 os.makedirs(BANNERS_FOLDER, exist_ok=True)
 
-# Cria o app Flask independente
-studio_app = Flask(__name__)
 # IMPORTANTE: precisa ser a MESMA secret_key do app.py principal. Sessão é
 # um cookie assinado com essa chave — se as chaves forem diferentes, o
 # Studio nunca vai reconhecer quem fez login no site principal, e o
-# controle de "só o dono pode entrar" simplesmente não funciona.
-studio_app.secret_key = 'WsTDo1zxc0oxx2o9Xo*188m'
+# controle de "só o dono pode entrar" simplesmente não funciona (login
+# parece ter dado certo no site principal, mas o Studio continua agindo
+# como se ninguém tivesse logado -- sem nenhum erro visível).
+#
+# Antes isso era garantido porque os dois processos tinham a mesma
+# string fixa '...188m' escrita nos dois arquivos. Agora que o app.py
+# gera a secret_key num arquivo (flask_secret_key.txt, pra não ficar
+# mais fixa no código-fonte -- ver app.py), o studio.py tem que ler o
+# MESMO arquivo em vez de ter sua própria string -- segue exatamente o
+# mesmo padrão que o go_shared_secret.txt já usa aqui embaixo.
+_FLASK_SECRET_KEY_PATH = os.environ.get(
+    'CLIPPY_FLASK_SECRET_PATH',
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'flask_secret_key.txt'),
+)
+
+
+def get_flask_secret_key():
+    if not os.path.exists(_FLASK_SECRET_KEY_PATH):
+        with open(_FLASK_SECRET_KEY_PATH, 'w', encoding='utf-8') as f:
+            f.write(secrets.token_hex(32))
+    with open(_FLASK_SECRET_KEY_PATH, 'r', encoding='utf-8') as f:
+        return f.read().strip()
+
+
+# Cria o app Flask independente
+studio_app = Flask(__name__)
+studio_app.secret_key = get_flask_secret_key()
 studio_app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 studio_app.config['MAX_CONTENT_LENGTH'] = int(5 * 1024 * 1024 * 1024)  # 5GB max
 studio_app.config['FFMPEG_PATH'] = FFMPEG_PATH
@@ -194,17 +218,89 @@ def save_video_entry(video_entry):
     conn.commit()
     conn.close()
 
+# ---------- Senhas de canal: bcrypt (mesmo esquema do app.py) ----------
+# studio.py é um processo separado do app.py mas mexe na mesma tabela
+# channels do app.db compartilhado, então usa exatamente o mesmo formato
+# de hash (bcrypt) e o mesmo fallback/self-heal pra senha antiga em texto
+# puro -- senão um dos dois processos quebraria a leitura da senha do
+# outro.
+
+def _parece_hash_bcrypt(valor):
+    if not valor or not isinstance(valor, str):
+        return False
+    return valor.startswith('$2a$') or valor.startswith('$2b$') or valor.startswith('$2y$')
+
+
+def _senha_bytes_bcrypt(senha):
+    """bcrypt só aceita até 72 bytes e a lib (bcrypt>=4) dá ValueError pra
+    senha maior em vez de truncar sozinha -- então truncamos aqui, SEMPRE
+    do mesmo jeito (hash e checagem), senão uma senha "longa" (inclusive
+    uma senha normal cheia de acento -- ç/ã/õ/é ocupam mais de 1 byte em
+    UTF-8 cada) nunca mais bate com o hash dela mesma. Corta em bytes, não
+    em caracteres -- não precisa decodificar de volta, o bcrypt trabalha
+    direto com bytes."""
+    return senha.encode('utf-8')[:72]
+
+
+def hash_password(senha_pura):
+    return bcrypt.hashpw(_senha_bytes_bcrypt(senha_pura), bcrypt.gensalt()).decode('utf-8')
+
+
+def check_password(senha_digitada, senha_salva):
+    """Retorna (confere: bool, precisa_rehash: bool). Nunca estoura exceção
+    mesmo se senha_digitada vier None/vazia (ex.: campo não enviado no
+    formulário) -- nesse caso só dá "não confere", igual uma senha errada."""
+    if not senha_salva or not senha_digitada:
+        return False, False
+    if _parece_hash_bcrypt(senha_salva):
+        try:
+            ok = bcrypt.checkpw(_senha_bytes_bcrypt(senha_digitada), senha_salva.encode('utf-8'))
+        except (ValueError, TypeError, AttributeError) as e:
+            if os.environ.get('CLIPPY_DEBUG_SENHA') == '1':
+                print(f"[DEBUG SENHA] bcrypt.checkpw lançou {type(e).__name__}: {e}")
+            ok = False
+        return ok, False
+    return senha_digitada == senha_salva, (senha_digitada == senha_salva)
+
+
 def create_channel_record(username, display_name, bio, password, foto_path=None):
     conn = get_db()
     c = conn.cursor()
+    senha_para_salvar = password if _parece_hash_bcrypt(password) else hash_password(password)
     c.execute("""
         INSERT OR REPLACE INTO channels (username, display_name, bio, password, foto_path) VALUES (?, ?, ?, ?, ?)
-    """, (username, display_name, bio, password, foto_path))
+    """, (username, display_name, bio, senha_para_salvar, foto_path))
     conn.commit()
     conn.close()
 
-def verify_channel_password(senha_digitada, senha_salva):
-    return senha_digitada == senha_salva
+
+def _rehash_senha_canal(username, senha_pura):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("UPDATE channels SET password = ? WHERE username = ?", (hash_password(senha_pura), username))
+    conn.commit()
+    conn.close()
+
+
+def verify_channel_password(senha_digitada, senha_salva, username=None):
+    ok, precisa_rehash = check_password(senha_digitada, senha_salva)
+    if ok and precisa_rehash and username:
+        _rehash_senha_canal(username, senha_digitada)
+    if os.environ.get('CLIPPY_DEBUG_SENHA') == '1':
+        # DEBUG TEMPORÁRIO -- nunca imprime a senha nem o hash inteiro,
+        # só o suficiente pra descobrir onde a comparação está falhando.
+        # Remover depois de resolvido (ou não definir a variável de
+        # ambiente CLIPPY_DEBUG_SENHA).
+        print(
+            f"[DEBUG SENHA CANAL] username={username!r} "
+            f"senha_digitada_len={len(senha_digitada) if senha_digitada else 0} "
+            f"senha_salva_vazia={not bool(senha_salva)} "
+            f"parece_hash_bcrypt={_parece_hash_bcrypt(senha_salva)} "
+            f"senha_salva_prefixo={senha_salva[:7] if senha_salva else None!r} "
+            f"senha_salva_len={len(senha_salva) if senha_salva else 0} "
+            f"resultado_ok={ok} precisa_rehash={precisa_rehash}"
+        )
+    return ok
 
 # Garante que colunas novas existam no banco (banco é compartilhado com o
 # app.py principal; isso é seguro de rodar toda vez, se a coluna já existe
@@ -352,7 +448,7 @@ def studio_mobile_upload(username):
         ch = get_channel_info(username)
         if not ch:
             return 'Canal não encontrado', 404
-        if not verify_channel_password(senha_digitada, ch.get('password', '')):
+        if not verify_channel_password(senha_digitada, ch.get('password', ''), username=username):
             return 'Senha do canal incorreta', 403
 
         title = request.form.get('title')
@@ -445,7 +541,7 @@ def studio_mobile_upload(username):
 def upload_video(username):
     senha = request.form.get('password')
     ch = get_channel_info(username)
-    if not ch or senha != ch.get('password'):
+    if not ch or not verify_channel_password(senha, ch.get('password', ''), username=username):
         return "Senha incorreta", 403
 
     title = request.form.get('title')
@@ -550,7 +646,7 @@ def trocar_foto(username):
     ch = get_channel_info(username)
     if not ch:
         return "Canal não encontrado.", 404
-    if not verify_channel_password(senha_digitada, ch.get('password', '')):
+    if not verify_channel_password(senha_digitada, ch.get('password', ''), username=username):
         return "Senha incorreta.", 403
 
     foto = request.files.get('nova_foto')
@@ -894,7 +990,7 @@ def alterar_senha_canal(username):
     nova_senha = request.form.get('nova_senha', '').strip()
     confirmar_senha = request.form.get('confirmar_senha', '').strip()
 
-    if not verify_channel_password(senha_atual, ch.get('password', '')):
+    if not verify_channel_password(senha_atual, ch.get('password', ''), username=username):
         flash("Senha atual incorreta.")
         return redirect(url_for('config_canal', username=username))
 
@@ -923,7 +1019,7 @@ def excluir_canal(username):
         return "Canal não encontrado", 404
 
     senha_digitada = request.form.get('password', '')
-    if not verify_channel_password(senha_digitada, ch.get('password', '')):
+    if not verify_channel_password(senha_digitada, ch.get('password', ''), username=username):
         flash("Senha incorreta. O canal não foi excluído.")
         return redirect(url_for('config_canal', username=username))
 
