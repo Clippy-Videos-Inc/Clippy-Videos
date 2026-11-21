@@ -28,10 +28,13 @@ A plataforma tem como objetivo conectar pessoas por meio de vídeos, permitindo:
 
 Antes de iniciar o projeto, certifique-se de ter instalado:
 
-- Python 3.12 (ou Superior)
-- pip
-- Git
-- Go
+- Python 3.13 (ou Superior)
+- pip (Já Vem Junto com o Python.)
+- Git (Para os Commits.)
+- Go (Serviços Pequenos do Site como o Livechat e Notificações.)
+- Nginx (Para Modo de Produção.)
+- FFMPEG (Para Converter os Vídeos em Qualidades Diferentes.)
+- SQLite (Para Editar o Banco de Dados, Excluir Colunas, Etc.)
 
 ## Instalação
 
@@ -53,6 +56,7 @@ Se necessário, também é possível instalar algumas bibliotecas manualmente:
 ```bash
 pip install flask
 pip install secrets
+pip install waitress
 ```
 
 ## Como executar
@@ -74,6 +78,13 @@ Acesse a aplicação em:
 ```text
 http://localhost:7070
 ```
+
+## Como Executar em Modo de Produção
+
+```bash
+python serve.py
+```
+e Também Rode o Nginx
 
 ## Contribuição
 
